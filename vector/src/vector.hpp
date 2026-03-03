@@ -477,7 +477,7 @@ class vector {
         for (int i = 0; i < curcapacity; i++) {
             data[i].~T();
         }
-        free(data);
+        curcapacity = 0;
     }
     /**
      * inserts value before pos
