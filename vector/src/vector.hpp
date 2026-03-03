@@ -4,6 +4,7 @@
 #include <climits>
 #include <cstddef>
 #include <cstdlib>
+#include <iostream>
 
 #include "exceptions.hpp"
 
@@ -78,14 +79,14 @@ class vector {
         int operator-(const iterator& rhs) const {
             // TODO
             auto tmp = this->ptr;
-            if (tmp < rhs.ptr)
+            if (stat != rhs.stat)
                 throw index_out_of_bound();  // 不同的vector怎么判断？
             return (tmp - rhs.ptr);
         }
         iterator& operator+=(const int& n) {
             // TODO
             difference_type dif = end - ptr;
-            if (dif >= n) {
+            if (dif < n) {
                 throw index_out_of_bound();
             }
             ptr += n;
@@ -94,7 +95,7 @@ class vector {
         iterator& operator-=(const int& n) {
             // TODO
             difference_type dif = ptr - stat;
-            if (dif >= n) {
+            if (dif < n) {
                 throw index_out_of_bound();
             }
             ptr -= n;
@@ -104,7 +105,7 @@ class vector {
          * TODO iter++
          */
         iterator operator++(int) {
-            if (end - ptr <= 1) {
+            if (end - ptr <= 0) {
                 throw index_out_of_bound();
             } else {
                 auto result = *this;
@@ -116,7 +117,7 @@ class vector {
          * TODO ++iter
          */
         iterator& operator++() {
-            if (end - ptr <= 1) {
+            if (end - ptr <= 0) {
                 throw index_out_of_bound();
             } else {
                 this->ptr++;
@@ -150,7 +151,7 @@ class vector {
          * TODO *it
          */
         T& operator*() const {
-            return *this;
+            return *ptr;
         }
         /**
          * a operator to check whether two iterators are same (pointing to the
@@ -189,12 +190,12 @@ class vector {
          * TODO add data members
          *   just add whatever you want.
          */
-        T* ptr;
-        T* stat;
-        T* end;
+        const T* ptr;
+        const T* stat;
+        const T* end;
 
        public:
-        const_iterator(const T* ptr, T* stat, T* end)
+        const_iterator(const T* ptr, const T* stat, const T* end)
             : ptr(ptr), stat(stat), end(end) {
         }
         /**
@@ -218,15 +219,14 @@ class vector {
         // invaild_iterator.
         int operator-(const_iterator& rhs) const {
             // TODO
-            auto tmp = this->ptr;
-            if (tmp < rhs.ptr)
+            if (stat != rhs.stat)
                 throw index_out_of_bound();  // 不同的vector怎么判断？
-            return (tmp - rhs.ptr);
+            return (ptr - rhs.ptr);
         }
         const_iterator& operator+=(const int& n) {
             // TODO
             difference_type dif = end - ptr;
-            if (dif >= n) {
+            if (dif < n) {
                 throw index_out_of_bound();
             }
             ptr += n;
@@ -235,7 +235,7 @@ class vector {
         const_iterator& operator-=(const int& n) {
             // TODO
             difference_type dif = ptr - stat;
-            if (dif >= n) {
+            if (dif < n) {
                 throw index_out_of_bound();
             }
             ptr -= n;
@@ -245,7 +245,7 @@ class vector {
          * TODO iter++
          */
         const_iterator operator++(int) {
-            if (end - ptr <= 1) {
+            if (end - ptr <= 0) {
                 throw index_out_of_bound();
             } else {
                 auto result = *this;
@@ -257,7 +257,7 @@ class vector {
          * TODO ++iter
          */
         const_iterator& operator++() {
-            if (end - ptr <= 1) {
+            if (end - ptr <= 0) {
                 throw index_out_of_bound();
             } else {
                 this->ptr++;
@@ -290,8 +290,8 @@ class vector {
         /**
          * TODO *it
          */
-        T& operator*() const {
-            return *this;
+        const T& operator*() const {
+            return *ptr;
         }
         /**
          * a operator to check whether two iterators are same (pointing to the
@@ -333,7 +333,7 @@ class vector {
         data = (T*)malloc(sizeof(T) * maxcapacity);
         curcapacity = tmp.curcapacity;
         for (int i = 0; i < curcapacity; i++) {
-            data[i] = tmp.data[i];
+            new (&data[i]) T(tmp.data[i]);
         }
     }
 
@@ -365,6 +365,9 @@ class vector {
      * TODO Assignment operator
      */
     vector& operator=(const vector& other) {
+        if (this == &other) {
+            return *this;
+        }
         for (int i = 0; i < curcapacity; i++) {
             data[i].~T();
         }
@@ -438,10 +441,10 @@ class vector {
         return iterator(data, data, data + curcapacity);
     }
     const_iterator begin() const {
-        return iterator(data, data, data + curcapacity);
+        return const_iterator(data, data, data + curcapacity);
     }
     const_iterator cbegin() const {
-        return iterator(data, data, data + curcapacity);
+        return const_iterator(data, data, data + curcapacity);
     }
     /**
      * returns an iterator to the end.
@@ -450,10 +453,10 @@ class vector {
         return iterator(data + curcapacity, data, data + curcapacity);
     }
     const_iterator end() const {
-        return iterator(data + curcapacity, data, data + curcapacity);
+        return const_iterator(data + curcapacity, data, data + curcapacity);
     }
     const_iterator cend() const {
-        return iterator(data + curcapacity, data, data + curcapacity);
+        return const_iterator(data + curcapacity, data, data + curcapacity);
     }
     /**
      * checks whether the container is empty
@@ -481,15 +484,20 @@ class vector {
      * returns an iterator pointing to the inserted value.
      */
     iterator insert(iterator pos, const T& value) {
-        // size_t dif =
-        if (pos - this->begin() < 0 || this->end() - pos <= 0) {
+        if (pos - this->begin() < 0 || this->end() - pos < 0) {
             throw index_out_of_bound();
         }
         size_t index = pos - this->begin();
-        for (int i = curcapacity; i >= index + 1; i--) {
-            data[i] = data[i - 1];
+        if (curcapacity > index) {
+            new (&data[curcapacity]) T(data[curcapacity - 1]);
+            for (int i = curcapacity - 1; i >= (int)(index + 1); i--) {
+                data[i] = data[i - 1];
+            }
+            data[index] = value;
+        } else {
+            // insert at end
+            new (&data[index]) T(value);
         }
-        data[index] = value;
         curcapacity++;
         if (curcapacity + 1 == maxcapacity) {
             expansion();
@@ -514,7 +522,7 @@ class vector {
      * returned.
      */
     iterator erase(iterator pos) {
-        if (pos - this->begin() < 0 || this->end() - pos <= 0) {
+        if (pos - this->begin() < 0 || this->end() - pos < 0) {
             throw index_out_of_bound();
         }
         size_t index = pos - this->begin();
@@ -537,7 +545,7 @@ class vector {
      * adds an element to the end.
      */
     void push_back(const T& value) {
-        data[curcapacity++] = value;
+        new (&data[curcapacity++]) T(value);
         if (curcapacity + 1 == maxcapacity) {
             expansion();
         }
