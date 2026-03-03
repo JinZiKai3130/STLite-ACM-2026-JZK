@@ -323,16 +323,30 @@ class vector {
     size_t curcapacity;
     static const size_t CAP = 256;
 
+    void expansion() {
+        const auto tmp = *this;
+        maxcapacity *= 2;
+        for (int i = 0; i < curcapacity; i++) {
+            data[i].~T();
+        }
+        free(data);
+        data = (T*)malloc(sizeof(T) * maxcapacity);
+        curcapacity = tmp.curcapacity;
+        for (int i = 0; i < curcapacity; i++) {
+            data[i] = tmp.data[i];
+        }
+    }
+
    public:
     vector() {
-        data = (T*)malloc(sizeof(T) * CAP);
         maxcapacity = CAP;
         curcapacity = 0;
+        data = (T*)malloc(sizeof(T) * maxcapacity);
     }
     vector(const vector& other) {
-        data = (T*)malloc(sizeof(T) * other.maxcapacity);
         maxcapacity = other.maxcapacity;
         curcapacity = other.curcapacity;
+        data = (T*)malloc(sizeof(T) * other.maxcapacity);
         for (int i = 0; i < curcapacity; i++) {
             new (&data[i]) T(other.data[i]);
         }
@@ -433,13 +447,13 @@ class vector {
      * returns an iterator to the end.
      */
     iterator end() {
-        return iterator(data + curcapacity - 1, data, data + curcapacity);
+        return iterator(data + curcapacity, data, data + curcapacity);
     }
     const_iterator end() const {
-        return iterator(data + curcapacity - 1, data, data + curcapacity);
+        return iterator(data + curcapacity, data, data + curcapacity);
     }
     const_iterator cend() const {
-        return iterator(data + curcapacity - 1, data, data + curcapacity);
+        return iterator(data + curcapacity, data, data + curcapacity);
     }
     /**
      * checks whether the container is empty
@@ -467,6 +481,20 @@ class vector {
      * returns an iterator pointing to the inserted value.
      */
     iterator insert(iterator pos, const T& value) {
+        // size_t dif =
+        if (pos - this->begin() < 0 || this->end() - pos <= 0) {
+            throw index_out_of_bound();
+        }
+        size_t index = pos - this->begin();
+        for (int i = curcapacity; i >= index + 1; i--) {
+            data[i] = data[i - 1];
+        }
+        data[index] = value;
+        curcapacity++;
+        if (curcapacity + 1 == maxcapacity) {
+            expansion();
+        }
+        return pos;
     }
     /**
      * inserts value at index ind.
@@ -476,6 +504,8 @@ class vector {
      * because after inserting the size will increase 1.)
      */
     iterator insert(const size_t& ind, const T& value) {
+        iterator tmpptr(data + ind, data, data + ind);
+        return insert(tmpptr, value);
     }
     /**
      * removes the element at pos.
@@ -484,6 +514,15 @@ class vector {
      * returned.
      */
     iterator erase(iterator pos) {
+        if (pos - this->begin() < 0 || this->end() - pos <= 0) {
+            throw index_out_of_bound();
+        }
+        size_t index = pos - this->begin();
+        for (size_t i = index; i < curcapacity - 1; i++) {
+            data[i] = data[i + 1];
+        }
+        curcapacity--;
+        return pos;
     }
     /**
      * removes the element with index ind.
@@ -491,11 +530,17 @@ class vector {
      * throw index_out_of_bound if ind >= size
      */
     iterator erase(const size_t& ind) {
+        iterator tmpptr(data + ind, data, data + ind);
+        return erase(tmpptr);
     }
     /**
      * adds an element to the end.
      */
     void push_back(const T& value) {
+        data[curcapacity++] = value;
+        if (curcapacity + 1 == maxcapacity) {
+            expansion();
+        }
     }
     /**
      * remove the last element from the end.
