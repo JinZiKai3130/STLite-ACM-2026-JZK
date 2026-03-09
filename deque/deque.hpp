@@ -9,8 +9,6 @@ namespace sjtu {
 
 template <class T>
 class deque {
-    static const int chunk_size = 16;
-
    public:
     class const_iterator;
     class iterator {
@@ -19,8 +17,6 @@ class deque {
          * TODO add data members
          *   just add whatever you want.
          */
-        T* ptr;
-
        public:
         /**
          * return a new iterator which pointer n-next elements
@@ -100,15 +96,44 @@ class deque {
         const_iterator() {
             // TODO
         }
-        const_iterator(const const_iterator& other) {
-            // TODO
-        }
         const_iterator(const iterator& other) {
             // TODO
         }
-        // And other methods in iterator.
-        // And other methods in iterator.
-        // And other methods in iterator.
+        const_iterator operator+(const int& n) const {
+            // TODO
+        }
+        const_iterator operator-(const int& n) const {
+            // TODO
+        }
+        int operator-(const const_iterator& rhs) const {
+            // TODO
+        }
+        const_iterator operator+=(const int& n) {
+            // TODO
+        }
+        const_iterator operator-=(const int& n) {
+            // TODO
+        }
+        const_iterator operator++(int) {
+        }
+        const_iterator& operator++() {
+        }
+        const_iterator operator--(int) {
+        }
+        const_iterator& operator--() {
+        }
+        const T& operator*() const {
+        }
+        const T* operator->() const noexcept {
+        }
+        bool operator==(const iterator& rhs) const {
+        }
+        bool operator==(const const_iterator& rhs) const {
+        }
+        bool operator!=(const iterator& rhs) const {
+        }
+        bool operator!=(const const_iterator& rhs) const {
+        }
     };
     /**
      * TODO Constructors
