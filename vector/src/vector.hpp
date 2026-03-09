@@ -4,7 +4,6 @@
 #include <climits>
 #include <cstddef>
 #include <cstdlib>
-#include <iostream>
 
 #include "exceptions.hpp"
 
