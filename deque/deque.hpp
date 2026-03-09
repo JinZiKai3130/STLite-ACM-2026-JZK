@@ -10,6 +10,7 @@ namespace sjtu {
 template <class T>
 class deque {
    public:
+    static const int chunk_size = 16;
     class const_iterator;
     class iterator {
        private:
@@ -17,6 +18,11 @@ class deque {
          * TODO add data members
          *   just add whatever you want.
          */
+        T* ptr;
+        T* stat;
+        T* end;
+        T** node;
+
        public:
         /**
          * return a new iterator which pointer n-next elements
@@ -25,15 +31,27 @@ class deque {
          */
         iterator operator+(const int& n) const {
             // TODO
+            auto result = *this;
+            result += n;
+            return result;
         }
         iterator operator-(const int& n) const {
             // TODO
+            auto result = *this;
+            result -= n;
+            return result;
         }
         // return th distance between two iterator,
         // if these two iterators points to different vectors, throw
         // invaild_iterator.
         int operator-(const iterator& rhs) const {
             // TODO
+            if (node == rhs.node) {
+                return ptr - rhs.ptr;
+            } else {
+                return (node - rhs.node) * chunk_size + (ptr - stat) -
+                       (rhs.ptr - rhs.stat);
+            }
         }
         iterator operator+=(const int& n) {
             // TODO
@@ -65,11 +83,13 @@ class deque {
          * TODO *it
          */
         T& operator*() const {
+            return *ptr;
         }
         /**
          * TODO it->field
          */
         T* operator->() const noexcept {
+            return ptr;
         }
         /**
          * a operator to check whether two iterators are same (pointing to the
