@@ -19,9 +19,15 @@ class deque {
          *   just add whatever you want.
          */
         T* ptr;
-        T* stat;
-        T* end;
+        T* stat;  // there is an element on the address
+        T* end;   // no element on the address
         T** node;
+        const void* identity;
+        void node_move(T** new_node) {
+            node = new_node;
+            stat = *new_node;
+            end = new_node + chunk_size;
+        }
 
        public:
         /**
@@ -29,6 +35,17 @@ class deque {
          *   even if there are not enough elements, the behaviour is
          * **undefined**. as well as operator-
          */
+        iterator() = default;
+        iterator(T* ptr, T* stat, T* end, T** node, const void* indentity)
+            : ptr(ptr), stat(stat), end(end), node(node), identity(identity) {
+        }
+        iterator(const iterator& other)
+            : ptr(other.ptr),
+              stat(other.stat),
+              end(other.end),
+              node(other.node),
+              identity(other.identity) {
+        }
         iterator operator+(const int& n) const {
             // TODO
             auto result = *this;
@@ -46,6 +63,9 @@ class deque {
         // invaild_iterator.
         int operator-(const iterator& rhs) const {
             // TODO
+            if (identity != rhs.identity) {
+                throw invalid_iterator();
+            }
             if (node == rhs.node) {
                 return ptr - rhs.ptr;
             } else {
@@ -55,29 +75,67 @@ class deque {
         }
         iterator operator+=(const int& n) {
             // TODO
+            int d1 = end - ptr - 1;
+            if (n <= d1) {
+                ptr += n;
+                return *this;
+            } else {
+                int d2 = (n - d1) % chunk_size;
+                node_move(node + (n - d1) / chunk_size);
+                ptr = stat + d2;
+                return *this;
+            }
         }
         iterator operator-=(const int& n) {
             // TODO
+            int d1 = ptr - stat;
+            if (n <= d1) {
+                ptr -= n;
+                return *this;
+            } else {
+                int d2 = (n - d1) % chunk_size;
+                node_move(node - (n - d1) / chunk_size);
+                ptr = end - d2 - 1;
+                return *this;
+            }
         }
         /**
          * TODO iter++
          */
         iterator operator++(int) {
+            auto result = *this;
+            ++*this;
+            return result;
         }
         /**
          * TODO ++iter
          */
         iterator& operator++() {
+            ++ptr;
+            if (ptr == end) {
+                set_node(node + 1);
+                ptr = stat;
+            }
+            return *this;
         }
         /**
          * TODO iter--
          */
         iterator operator--(int) {
+            auto result = *this;
+            --*this;
+            return result;
         }
         /**
          * TODO --iter
          */
         iterator& operator--() {
+            if (ptr == stat) {
+                set_node(node - 1);
+                ptr = end;
+            }
+            --ptr;
+            return *this;
         }
         /**
          * TODO *it
@@ -96,15 +154,19 @@ class deque {
          * same memory).
          */
         bool operator==(const iterator& rhs) const {
+            return (ptr == rhs.ptr);
         }
         bool operator==(const const_iterator& rhs) const {
+            return (ptr == rhs.ptr);
         }
         /**
          * some other operator for iterator.
          */
         bool operator!=(const iterator& rhs) const {
+            return (ptr != rhs.ptr);
         }
         bool operator!=(const const_iterator& rhs) const {
+            return (ptr != rhs.ptr);
         }
     };
     class const_iterator {
@@ -112,47 +174,115 @@ class deque {
         //  and it should be able to construct from an iterator.
        private:
         // data members.
+        const T* ptr;
+        const T* stat;  // there is an element on the address
+        const T* end;   // no element on the address
+        const T** node;
+        const void* identity;
+
        public:
-        const_iterator() {
-            // TODO
-        }
-        const_iterator(const iterator& other) {
+        const_iterator() = default;
+        const_iterator(const iterator& other)
+            : ptr(other.ptr),
+              stat(other.stat),
+              end(other.end),
+              node(other.node),
+              identity(other.identity) {
             // TODO
         }
         const_iterator operator+(const int& n) const {
             // TODO
+            auto result = *this;
+            result += n;
+            return result;
         }
         const_iterator operator-(const int& n) const {
             // TODO
+            auto result = *this;
+            result -= n;
+            return result;
         }
         int operator-(const const_iterator& rhs) const {
             // TODO
+            if (identity != rhs.identity) {
+                throw invalid_iterator();
+            }
+            if (node == rhs.node) {
+                return ptr - rhs.ptr;
+            } else {
+                return (node - rhs.node) * chunk_size + (ptr - stat) -
+                       (rhs.ptr - rhs.stat);
+            }
         }
         const_iterator operator+=(const int& n) {
             // TODO
+            int d1 = end - ptr - 1;
+            if (n <= d1) {
+                ptr += n;
+                return *this;
+            } else {
+                int d2 = (n - d1) % chunk_size;
+                node_move(node + (n - d1) / chunk_size);
+                ptr = stat + d2;
+                return *this;
+            }
         }
         const_iterator operator-=(const int& n) {
             // TODO
+            int d1 = ptr - stat;
+            if (n <= d1) {
+                ptr -= n;
+                return *this;
+            } else {
+                int d2 = (n - d1) % chunk_size;
+                node_move(node - (n - d1) / chunk_size);
+                ptr = end - d2 - 1;
+                return *this;
+            }
         }
         const_iterator operator++(int) {
+            auto result = *this;
+            ++*this;
+            return result;
         }
         const_iterator& operator++() {
+            ++ptr;
+            if (ptr == end) {
+                set_node(node + 1);
+                ptr = stat;
+            }
+            return *this;
         }
         const_iterator operator--(int) {
+            auto result = *this;
+            --*this;
+            return result;
         }
         const_iterator& operator--() {
+            if (ptr == stat) {
+                set_node(node - 1);
+                ptr = end;
+            }
+            --ptr;
+            return *this;
         }
         const T& operator*() const {
+            return *ptr;
         }
         const T* operator->() const noexcept {
+            return ptr;
         }
         bool operator==(const iterator& rhs) const {
+            return (ptr == rhs.ptr);
         }
         bool operator==(const const_iterator& rhs) const {
+            return (ptr == rhs.ptr);
         }
         bool operator!=(const iterator& rhs) const {
+            return (ptr != rhs.ptr);
         }
         bool operator!=(const const_iterator& rhs) const {
+            return (ptr != rhs.ptr);
         }
     };
     /**
