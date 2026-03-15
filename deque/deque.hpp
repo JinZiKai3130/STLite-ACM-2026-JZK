@@ -298,6 +298,25 @@ class deque {
     size_t first_offset;
     size_t back_offset;
 
+    void expand() {
+        size_t new_map_size = map_size * 2;
+        T** new_map = (T**)malloc(sizeof(T*) * new_map_size);
+        for (size_t i = 0; i < new_map_size; ++i) {
+            new_map[i] = nullptr;
+        }
+        size_t used_blocks = back_block - first_block + 1;
+        size_t new_first_block = (new_map_size - used_blocks) / 2;
+
+        for (size_t i = 0; i < used_blocks; ++i) {
+            new_map[new_first_block + i] = map[first_block + i];
+        }
+        back_block = new_first_block + (back_block - first_block);
+        first_block = new_first_block;
+        free(map);
+        map = new_map;
+        map_size = new_map_size;
+    }
+
    public:
     static const size_t chunk_size = 16;
     /**
@@ -575,6 +594,9 @@ class deque {
      *     throw if the iterator is invalid or it point to a wrong place.
      */
     iterator insert(iterator pos, const T& value) {
+        if (pos - begin() < 0 || pos - end() > 0) {
+            return index_out_of_bound();
+        }
     }
     /**
      * removes specified element at pos.
@@ -584,28 +606,86 @@ class deque {
      * empty, the iterator is invalid or it points to a wrong place.
      */
     iterator erase(iterator pos) {
+        if (pos - begin() < 0 || pos - end() > 0) {
+            return index_out_of_bound();
+        }
     }
     /**
      * adds an element to the end
      */
     void push_back(const T& value) {
+        if (back_offset == chunk_size) {
+            if (back_block + 1 >= map_size) {
+                expand();
+            }
+            T* new_block = (T*)malloc(sizeof(T) * chunk_size);
+            map[back_block + 1] = new_block;
+            new (&new_block[0]) T(value);
+            back_block++;
+            back_offset = 1;
+        } else {
+            new (&map[back_block][back_offset]) T(value);
+            back_offset++;
+        }
     }
     /**
      * removes the last element
      *     throw when the container is empty.
      */
     void pop_back() {
+        if (first_block == back_block && first_offset == back_offset) {
+            throw container_is_empty();
+        }
+        map[back_block][back_offset - 1].~T();
+        back_offset--;
+        if (back_offset == 0) {
+            if (first_block == back_block) {  // 完全是空的
+                first_offset = back_offset = chunk_size / 2;
+            }
+            free(map[back_block]);
+            map[back_block] = nullptr;
+            back_block--;
+            back_offset = chunk_size;
+        }
     }
     /**
      * inserts an element to the beginning.
      */
     void push_front(const T& value) {
+        if (first_offset == 0) {
+            if (first_block == 0) {
+                expand();
+            }
+            T* new_block = (T*)malloc(sizeof(T) * chunk_size);
+            map[first_block - 1] = new_block;
+            new (&new_block[chunk_size - 1]) T(value);
+            first_block--;
+            first_offset = chunk_size - 1;
+        } else {
+            new (&map[first_block][first_offset - 1]) T(value);
+            first_offset--;
+        }
     }
     /**
      * removes the first element.
      *     throw when the container is empty.
      */
     void pop_front() {
+        if (first_block == back_block && first_offset == back_offset) {
+            throw container_is_empty();
+        }
+        map[first_block][first_offset].~T();
+        first_offset++;
+        if (first_offset == chunk_size) {
+            if (first_block == back_block) {  // 完全是空的
+                first_offset = back_offset = chunk_size / 2;
+            } else {
+                free(map[first_block]);
+                map[first_block] = nullptr;
+                first_block++;
+                first_offset = 0;
+            }
+        }
     }
 };
 
