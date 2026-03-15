@@ -2,6 +2,7 @@
 #define SJTU_DEQUE_HPP
 
 #include <cstddef>
+#include <iostream>
 
 #include "exceptions.hpp"
 
@@ -25,7 +26,12 @@ class deque {
         void node_move(T** new_node) {
             node = new_node;
             stat = *new_node;
-            end = stat + chunk_size;
+            const auto* deq = static_cast<const deque*>(identity);
+            if (new_node == deq->map + deq->back_block) {
+                end = stat + deq->back_offset;
+            } else {
+                end = stat + chunk_size;
+            }
         }
 
        public:
@@ -35,7 +41,7 @@ class deque {
          * **undefined**. as well as operator-
          */
         iterator() = default;
-        iterator(T* ptr, T* stat, T* end, T** node, const void* indentity)
+        iterator(T* ptr, T* stat, T* end, T** node, const void* identity)
             : ptr(ptr), stat(stat), end(end), node(node), identity(identity) {
         }
         iterator(const iterator& other)
@@ -57,7 +63,7 @@ class deque {
             result -= n;
             return result;
         }
-        // return th distance between two iterator,
+        // return the distance between two iterator,
         // if these two iterators points to different vectors, throw
         // invaild_iterator.
         int operator-(const iterator& rhs) const {
@@ -74,29 +80,27 @@ class deque {
         }
         iterator operator+=(const int& n) {
             // TODO
-            int d1 = end - ptr - 1;
-            if (n <= d1) {
+            int remain = end - ptr;
+            if (n < remain) {
                 ptr += n;
                 return *this;
-            } else {
-                int d2 = (n - d1) % chunk_size;
-                node_move(node + (n - d1) / chunk_size);
-                ptr = stat + d2;
-                return *this;
             }
+            int k = n - remain;
+            node_move(node + (k / int(chunk_size)) + 1);
+            ptr = stat + (k % int(chunk_size));
+            return *this;
         }
         iterator operator-=(const int& n) {
             // TODO
-            int d1 = ptr - stat;
-            if (n <= d1) {
+            int remain = ptr - stat;
+            if (n <= remain) {
                 ptr -= n;
                 return *this;
-            } else {
-                int d2 = (n - d1) % chunk_size;
-                node_move(node - (n - d1) / chunk_size);
-                ptr = end - d2 - 1;
-                return *this;
             }
+            int k = n - (remain + 1);
+            node_move(node - ((k / int(chunk_size)) + 1));
+            ptr = (end - 1) - (k % int(chunk_size));
+            return *this;
         }
         /**
          * TODO iter++
@@ -110,8 +114,12 @@ class deque {
          * TODO ++iter
          */
         iterator& operator++() {
+            const auto* deq = static_cast<const deque*>(identity);
             ++ptr;
             if (ptr == end) {
+                if (node == deq->map + deq->back_block) {
+                    return *this;
+                }
                 node_move(node + 1);
                 ptr = stat;
             }
@@ -181,7 +189,11 @@ class deque {
         void node_move(T** new_node) {
             node = new_node;
             stat = *new_node;
-            end = stat + chunk_size;
+            const auto* deq = static_cast<const deque*>(identity);
+            if (new_node == deq->map + deq->back_block)
+                end = stat + deq->back_offset;
+            else
+                end = stat + chunk_size;
         }
 
        public:
@@ -193,6 +205,9 @@ class deque {
               node(other.node),
               identity(other.identity) {
             // TODO
+        }
+        const_iterator(T* ptr, T* stat, T* end, T** node, const void* identity)
+            : ptr(ptr), stat(stat), end(end), node(node), identity(identity) {
         }
         const_iterator operator+(const int& n) const {
             // TODO
@@ -220,29 +235,27 @@ class deque {
         }
         const_iterator operator+=(const int& n) {
             // TODO
-            int d1 = end - ptr - 1;
-            if (n <= d1) {
+            int remain = end - ptr;
+            if (n < remain) {
                 ptr += n;
                 return *this;
-            } else {
-                int d2 = (n - d1) % chunk_size;
-                node_move(node + (n - d1) / chunk_size);
-                ptr = stat + d2;
-                return *this;
             }
+            int k = n - remain;
+            node_move(node + (k / int(chunk_size)) + 1);
+            ptr = stat + (k % int(chunk_size));
+            return *this;
         }
         const_iterator operator-=(const int& n) {
             // TODO
-            int d1 = ptr - stat;
-            if (n <= d1) {
+            int remain = ptr - stat;
+            if (n <= remain) {
                 ptr -= n;
                 return *this;
-            } else {
-                int d2 = (n - d1) % chunk_size;
-                node_move(node - (n - d1) / chunk_size);
-                ptr = end - d2 - 1;
-                return *this;
             }
+            int k = n - (remain + 1);
+            node_move(node - ((k / int(chunk_size)) + 1));
+            ptr = (end - 1) - (k % int(chunk_size));
+            return *this;
         }
         const_iterator operator++(int) {
             auto result = *this;
@@ -330,29 +343,27 @@ class deque {
         back_block = first_block;
         first_offset = chunk_size / 2;
         back_offset = first_offset;
+        map[first_block] = (T*)malloc(sizeof(T) * chunk_size);
     }
     deque(const deque& other) {
         map_size = other.map_size;
         map = (T**)malloc(sizeof(T*) * map_size);
-        if (other.map == nullptr) {
-            map = nullptr;
-            return;
-        }
-        for (size_t i = 0; i < map_size; i++) {
-            T* new_block = (T*)malloc(sizeof(T) * chunk_size);
-            size_t start = 0;
-            size_t end = chunk_size - 1;
-            if (i == other.first_block) start = other.first_offset;
-            if (i == other.back_block) end = other.back_offset - 1;
-            for (size_t j = start; j <= end; ++j) {
-                new (new_block + j) T(other.map[i][j]);
-            }
-            map[i] = new_block;
-        }
+        for (size_t i = 0; i < map_size; ++i) map[i] = nullptr;
         first_block = other.first_block;
         back_block = other.back_block;
         first_offset = other.first_offset;
         back_offset = other.back_offset;
+        for (size_t b = other.first_block; b <= other.back_block; ++b) {
+            T* new_block = (T*)malloc(sizeof(T) * chunk_size);
+            map[b] = new_block;
+            size_t start = 0;
+            size_t end_exclusive = chunk_size;
+            if (b == other.first_block) start = other.first_offset;
+            if (b == other.back_block) end_exclusive = other.back_offset;
+            for (size_t j = start; j < end_exclusive; ++j) {
+                new (new_block + j) T(other.map[b][j]);
+            }
+        }
     }
     /**
      * TODO Deconstructor
@@ -378,39 +389,39 @@ class deque {
         if (this == &other) {
             return *this;
         }
-        for (size_t block = first_block; block <= back_block; ++block) {
-            T* block_ptr = map[block];
-            size_t start = 0;
-            size_t end = chunk_size - 1;
-            if (block == first_block) start = first_offset;
-            if (block == back_block) end = back_offset - 1;
-            for (size_t i = start; i <= end; ++i) {
-                block_ptr[i].~T();
+        if (map != nullptr) {
+            for (size_t block = first_block; block <= back_block; ++block) {
+                T* block_ptr = map[block];
+                size_t start = 0;
+                size_t end = chunk_size - 1;
+                if (block == first_block) start = first_offset;
+                if (block == back_block) end = back_offset - 1;
+                for (size_t i = start; i <= end; ++i) {
+                    block_ptr[i].~T();
+                }
+                free(block_ptr);
             }
-            free(block_ptr);
+            free(map);
         }
-        free(map);
         map_size = other.map_size;
         map = (T**)malloc(sizeof(T*) * map_size);
-        if (other.map == nullptr) {
-            map = nullptr;
-            return;
-        }
-        for (size_t i = 0; i < map_size; i++) {
-            T* new_block = (T*)malloc(sizeof(T) * chunk_size);
-            size_t start = 0;
-            size_t end = chunk_size - 1;
-            if (i == other.first_block) start = other.first_offset;
-            if (i == other.back_block) end = other.back_offset - 1;
-            for (size_t j = start; j <= end; ++j) {
-                new (new_block + j) T(other.map[i][j]);
-            }
-            map[i] = new_block;
-        }
+        for (size_t i = 0; i < map_size; ++i) map[i] = nullptr;
         first_block = other.first_block;
         back_block = other.back_block;
         first_offset = other.first_offset;
         back_offset = other.back_offset;
+        for (size_t b = other.first_block; b <= other.back_block; ++b) {
+            T* new_block = (T*)malloc(sizeof(T) * chunk_size);
+            map[b] = new_block;
+            size_t start = 0;
+            size_t end_exclusive = chunk_size;
+            if (b == other.first_block) start = other.first_offset;
+            if (b == other.back_block) end_exclusive = other.back_offset;
+            for (size_t j = start; j < end_exclusive; ++j) {
+                new (new_block + j) T(other.map[b][j]);
+            }
+        }
+        return *this;
     }
     /**
      * access specified element with bounds checking
@@ -518,33 +529,37 @@ class deque {
         if (empty()) {
             throw container_is_empty();
         }
-        return map[back_block][back_offset];
+        return map[back_block][back_offset - 1];
     }
     /**
      * returns an iterator to the beginning.
      */
     iterator begin() {
-        return iterator(&map[first_block][first_offset],
-                        &map[first_block][first_offset],
-                        &map[back_block][back_offset], map[first_block], map);
+        T* stat = map[first_block];
+        T* end = (first_block == back_block) ? (stat + back_offset)
+                                             : (stat + chunk_size);
+        return iterator(stat + first_offset, stat, end, &map[first_block],
+                        this);
     }
     const_iterator cbegin() const {
-        return const_iterator(
-            &map[first_block][first_offset], &map[first_block][first_offset],
-            &map[back_block][back_offset], map[first_block], map);
+        T* stat = map[first_block];
+        T* end = (first_block == back_block) ? (stat + back_offset)
+                                             : (stat + chunk_size);
+        return const_iterator(stat + first_offset, stat, end, &map[first_block],
+                              this);
     }
     /**
      * returns an iterator to the end.
      */
     iterator end() {
-        return iterator(&map[back_block][back_offset],
-                        &map[first_block][first_offset],
-                        &map[back_block][back_offset], map[back_block], map);
+        T* s = map[back_block];
+        T* e = s + back_offset;
+        return iterator(e, s, e, &map[back_block], this);
     }
     const_iterator cend() const {
-        return const_iterator(
-            &map[back_block][back_offset], &map[first_block][first_offset],
-            &map[back_block][back_offset], map[back_block], map);
+        T* s = map[back_block];
+        T* e = s + back_offset;
+        return const_iterator(e, s, e, &map[back_block], this);
     }
     /**
      * checks whether the container is empty.
@@ -586,6 +601,7 @@ class deque {
         back_block = first_block;
         first_offset = chunk_size / 2;
         back_offset = first_offset;
+        map[first_block] = (T*)malloc(sizeof(T) * chunk_size);
     }
     /**
      * inserts elements at the specified locat on in the container.
@@ -594,38 +610,30 @@ class deque {
      *     throw if the iterator is invalid or it point to a wrong place.
      */
     iterator insert(iterator pos, const T& value) {
-        if (pos - begin() < 0 || pos - end() > 0) {
+        int idx;
+        try {
+            idx = pos - begin();
+        } catch (...) {
+            throw invalid_iterator();
+        }
+        if (idx < 0 || idx > static_cast<int>(size())) {
             throw index_out_of_bound();
         }
 
-        if (pos == begin()) {
+        if (idx == 0) {
             push_front(value);
             return begin();
         }
-        if (pos == end()) {
+        if (idx == static_cast<int>(size())) {
             push_back(value);
             return end() - 1;
         }
-
-        iterator old_last = end() - 1;
-        if (back_offset == chunk_size) {  // 先确认是否有位置
-            if (back_block + 1 >= map_size) expand();
-            T* new_block = (T*)malloc(sizeof(T) * chunk_size);
-            map[++back_block] = new_block;
-            back_offset = 1;
-        } else {
-            ++back_offset;
+        push_back(back());
+        for (size_t i = size() - 1; i > static_cast<size_t>(idx); --i) {
+            (*this)[i] = (*this)[i - 1];
         }
-
-        // 复制
-        for (iterator it = old_last; it != pos; --it) {
-            T* the_old = it.ptr;
-            T* the_new = (it + 1).ptr;
-            new (the_new) T(*the_old);
-            the_old->~T();
-        }
-        new (pos.ptr) T(value);
-        return pos;
+        (*this)[idx] = value;
+        return begin() + idx;
     }
     /**
      * removes specified element at pos.
@@ -635,33 +643,24 @@ class deque {
      * empty, the iterator is invalid or it points to a wrong place.
      */
     iterator erase(iterator pos) {
-        if (pos - begin() < 0 || pos - end() > 0) {
+        int idx;
+        try {
+            idx = pos - begin();
+        } catch (...) {
+            throw invalid_iterator();
+        }
+        if (idx < 0 || idx >= static_cast<int>(size())) {
             throw index_out_of_bound();
         }
-        if (pos == begin()) {
+        if (idx == 0) {
             pop_front();
             return begin();
         }
-        if (pos == end() - 1) {
-            pop_back();
-            return end();
+        for (size_t i = static_cast<size_t>(idx); i + 1 < size(); ++i) {
+            (*this)[i] = (*this)[i + 1];
         }
-        iterator next = pos + 1;
-        iterator last = end() - 1;
-        for (iterator it = next; it != end(); ++it) {  // 全部复制
-            T* the_old = it.ptr;
-            T* the_new = (it - 1).ptr;
-            new (the_new) T(*the_old);
-            the_new->~T();
-        }
-        --back_offset;
-        if (back_offset == 0 && back_block > first_block) {  // 回退一个块
-            free(map[back_block]);
-            map[back_block] = nullptr;
-            --back_block;
-            back_offset = chunk_size;
-        }
-        return pos;
+        pop_back();
+        return begin() + idx;
     }
     /**
      * adds an element to the end
@@ -694,11 +693,12 @@ class deque {
         if (back_offset == 0) {
             if (first_block == back_block) {  // 完全是空的
                 first_offset = back_offset = chunk_size / 2;
+            } else {
+                free(map[back_block]);
+                map[back_block] = nullptr;
+                back_block--;
+                back_offset = chunk_size;
             }
-            free(map[back_block]);
-            map[back_block] = nullptr;
-            back_block--;
-            back_offset = chunk_size;
         }
     }
     /**
