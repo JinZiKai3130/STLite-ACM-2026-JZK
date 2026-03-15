@@ -595,8 +595,37 @@ class deque {
      */
     iterator insert(iterator pos, const T& value) {
         if (pos - begin() < 0 || pos - end() > 0) {
-            return index_out_of_bound();
+            throw index_out_of_bound();
         }
+
+        if (pos == begin()) {
+            push_front(value);
+            return begin();
+        }
+        if (pos == end()) {
+            push_back(value);
+            return end() - 1;
+        }
+
+        iterator old_last = end() - 1;
+        if (back_offset == chunk_size) {  // 先确认是否有位置
+            if (back_block + 1 >= map_size) expand();
+            T* new_block = (T*)malloc(sizeof(T) * chunk_size);
+            map[++back_block] = new_block;
+            back_offset = 1;
+        } else {
+            ++back_offset;
+        }
+
+        // 复制
+        for (iterator it = old_last; it != pos; --it) {
+            T* the_old = it.ptr;
+            T* the_new = (it + 1).ptr;
+            new (the_new) T(*the_old);
+            the_old->~T();
+        }
+        new (pos.ptr) T(value);
+        return pos;
     }
     /**
      * removes specified element at pos.
@@ -607,8 +636,32 @@ class deque {
      */
     iterator erase(iterator pos) {
         if (pos - begin() < 0 || pos - end() > 0) {
-            return index_out_of_bound();
+            throw index_out_of_bound();
         }
+        if (pos == begin()) {
+            pop_front();
+            return begin();
+        }
+        if (pos == end() - 1) {
+            pop_back();
+            return end();
+        }
+        iterator next = pos + 1;
+        iterator last = end() - 1;
+        for (iterator it = next; it != end(); ++it) {  // 全部复制
+            T* the_old = it.ptr;
+            T* the_new = (it - 1).ptr;
+            new (the_new) T(*the_old);
+            the_new->~T();
+        }
+        --back_offset;
+        if (back_offset == 0 && back_block > first_block) {  // 回退一个块
+            free(map[back_block]);
+            map[back_block] = nullptr;
+            --back_block;
+            back_offset = chunk_size;
+        }
+        return pos;
     }
     /**
      * adds an element to the end
