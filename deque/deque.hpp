@@ -79,27 +79,28 @@ class deque {
             }
         }
         iterator operator+=(const int& n) {
-            // TODO
-            int remain = end - ptr;
-            if (n < remain) {
-                ptr += n;
-                return *this;
-            }
-            int k = n - remain;
-            node_move(node + (k / int(chunk_size)) + 1);
-            ptr = stat + (k % int(chunk_size));
+            if (n == 0) return *this;
+            if (n < 0) return (*this -= -n);
+
+            const auto* deq = static_cast<const deque*>(identity);
+            long long global =
+                (node - deq->map) * 1ll * chunk_size + (ptr - stat) + n;
+
+            node_move(deq->map + (global / (long long)chunk_size));
+            ptr = stat + (global % (long long)chunk_size);
             return *this;
         }
+
         iterator operator-=(const int& n) {
-            // TODO
-            int remain = ptr - stat;
-            if (n <= remain) {
-                ptr -= n;
-                return *this;
-            }
-            int k = n - (remain + 1);
-            node_move(node - ((k / int(chunk_size)) + 1));
-            ptr = (end - 1) - (k % int(chunk_size));
+            if (n == 0) return *this;
+            if (n < 0) return (*this += -n);
+
+            const auto* deq = static_cast<const deque*>(identity);
+            long long global =
+                (node - deq->map) * 1ll * chunk_size + (ptr - stat) - n;
+
+            node_move(deq->map + (global / (long long)chunk_size));
+            ptr = stat + (global % (long long)chunk_size);
             return *this;
         }
         /**
@@ -115,16 +116,19 @@ class deque {
          */
         iterator& operator++() {
             const auto* deq = static_cast<const deque*>(identity);
+            if (node == deq->map + deq->back_block && ptr == end) {
+                throw invalid_iterator();
+            }
             ++ptr;
             if (ptr == end) {
-                if (node == deq->map + deq->back_block) {
-                    return *this;
+                if (node != deq->map + deq->back_block) {
+                    node_move(node + 1);
+                    ptr = stat;
                 }
-                node_move(node + 1);
-                ptr = stat;
             }
             return *this;
         }
+
         /**
          * TODO iter--
          */
@@ -137,6 +141,12 @@ class deque {
          * TODO --iter
          */
         iterator& operator--() {
+            const auto* deq = static_cast<const deque*>(identity);
+            if (node == deq->map + deq->first_block &&
+                ptr == stat + deq->first_offset) {
+                throw invalid_iterator();
+            }
+
             if (ptr == stat) {
                 node_move(node - 1);
                 ptr = end;
@@ -148,6 +158,10 @@ class deque {
          * TODO *it
          */
         T& operator*() const {
+            const auto* deq = static_cast<const deque*>(identity);
+            if (node == deq->map + deq->back_block && ptr == end) {
+                throw invalid_iterator();
+            }
             return *ptr;
         }
         /**
@@ -234,27 +248,28 @@ class deque {
             }
         }
         const_iterator operator+=(const int& n) {
-            // TODO
-            int remain = end - ptr;
-            if (n < remain) {
-                ptr += n;
-                return *this;
-            }
-            int k = n - remain;
-            node_move(node + (k / int(chunk_size)) + 1);
-            ptr = stat + (k % int(chunk_size));
+            if (n == 0) return *this;
+            if (n < 0) return (*this -= -n);
+
+            const auto* deq = static_cast<const deque*>(identity);
+            long long global =
+                (node - deq->map) * 1ll * chunk_size + (ptr - stat) + n;
+
+            node_move(deq->map + (global / (long long)chunk_size));
+            ptr = stat + (global % (long long)chunk_size);
             return *this;
         }
+
         const_iterator operator-=(const int& n) {
-            // TODO
-            int remain = ptr - stat;
-            if (n <= remain) {
-                ptr -= n;
-                return *this;
-            }
-            int k = n - (remain + 1);
-            node_move(node - ((k / int(chunk_size)) + 1));
-            ptr = (end - 1) - (k % int(chunk_size));
+            if (n == 0) return *this;
+            if (n < 0) return (*this += -n);
+
+            const auto* deq = static_cast<const deque*>(identity);
+            long long global =
+                (node - deq->map) * 1ll * chunk_size + (ptr - stat) - n;
+
+            node_move(deq->map + (global / (long long)chunk_size));
+            ptr = stat + (global % (long long)chunk_size);
             return *this;
         }
         const_iterator operator++(int) {
@@ -263,10 +278,16 @@ class deque {
             return result;
         }
         const_iterator& operator++() {
+            const auto* deq = static_cast<const deque*>(identity);
+            if (node == deq->map + deq->back_block && ptr == end) {
+                throw invalid_iterator();
+            }
             ++ptr;
             if (ptr == end) {
-                node_move(node + 1);
-                ptr = stat;
+                if (node != deq->map + deq->back_block) {
+                    node_move(node + 1);
+                    ptr = stat;
+                }
             }
             return *this;
         }
@@ -276,6 +297,12 @@ class deque {
             return result;
         }
         const_iterator& operator--() {
+            const auto* deq = static_cast<const deque*>(identity);
+            if (node == deq->map + deq->first_block &&
+                ptr == stat + deq->first_offset) {
+                throw invalid_iterator();
+            }
+
             if (ptr == stat) {
                 node_move(node - 1);
                 ptr = end;
@@ -284,6 +311,10 @@ class deque {
             return *this;
         }
         const T& operator*() const {
+            const auto* deq = static_cast<const deque*>(identity);
+            if (node == deq->map + deq->back_block && ptr == end) {
+                throw invalid_iterator();
+            }
             return *ptr;
         }
         const T* operator->() const noexcept {
