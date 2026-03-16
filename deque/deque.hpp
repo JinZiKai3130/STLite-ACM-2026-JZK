@@ -2,7 +2,6 @@
 #define SJTU_DEQUE_HPP
 
 #include <cstddef>
-#include <iostream>
 
 #include "exceptions.hpp"
 
@@ -19,8 +18,8 @@ class deque {
          *   just add whatever you want.
          */
         T* ptr;
-        T* stat;  // there is an element on the address
-        T* end;   // no element on the address
+        T* stat;
+        T* end;
         T** node;
         const void* identity;
         void node_move(T** new_node) {
@@ -196,8 +195,8 @@ class deque {
        private:
         // data members.
         const T* ptr;
-        const T* stat;  // there is an element on the address
-        const T* end;   // no element on the address
+        const T* stat;
+        const T* end;
         T** node;
         const void* identity;
         void node_move(T** new_node) {
@@ -647,23 +646,32 @@ class deque {
         } catch (...) {
             throw invalid_iterator();
         }
-        if (idx < 0 || idx > static_cast<int>(size())) {
+        size_t n = size();
+        if (idx < 0 || idx > n) {
             throw index_out_of_bound();
         }
-
         if (idx == 0) {
             push_front(value);
             return begin();
         }
-        if (idx == static_cast<int>(size())) {
+        if (idx == n) {
             push_back(value);
             return end() - 1;
         }
-        push_back(back());
-        for (size_t i = size() - 1; i > static_cast<size_t>(idx); --i) {
-            (*this)[i] = (*this)[i - 1];
+        size_t p = idx;
+        if (p < n - p) {
+            push_front(front());
+            for (size_t i = 0; i < p; ++i) {
+                (*this)[i] = (*this)[i + 1];
+            }
+            (*this)[p] = value;
+        } else {
+            push_back(back());
+            for (size_t i = n; i > p; --i) {
+                (*this)[i] = (*this)[i - 1];
+            }
+            (*this)[p] = value;
         }
-        (*this)[idx] = value;
         return begin() + idx;
     }
     /**
@@ -680,17 +688,22 @@ class deque {
         } catch (...) {
             throw invalid_iterator();
         }
-        if (idx < 0 || idx >= static_cast<int>(size())) {
+        size_t n = size();
+        if (idx < 0 || idx >= n) {
             throw index_out_of_bound();
         }
-        if (idx == 0) {
+        size_t p = idx;
+        if (p < n - 1 - p) {  // 从头开始
+            for (size_t i = p; i > 0; --i) {
+                (*this)[i] = (*this)[i - 1];
+            }
             pop_front();
-            return begin();
+        } else {  // 从尾开始
+            for (size_t i = p; i + 1 < n; ++i) {
+                (*this)[i] = (*this)[i + 1];
+            }
+            pop_back();
         }
-        for (size_t i = static_cast<size_t>(idx); i + 1 < size(); ++i) {
-            (*this)[i] = (*this)[i + 1];
-        }
-        pop_back();
         return begin() + idx;
     }
     /**
