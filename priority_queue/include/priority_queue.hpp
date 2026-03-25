@@ -45,6 +45,20 @@ class priority_queue {
         }
     }
 
+    int merge_node(int x, int y) {
+        if (x == -1) return y;
+        if (y == -1) return x;
+        if (comp(v[x], v[y])) std::swap(x, y);  // v[x]小于v[y]
+        rc[x] = merge_node(rc[x], y);
+        int dis_l = (lc[x] == -1 ? -1 : dis[lc[x]]);
+        int dis_r = (lc[x] == -1 ? -1 : dis[rc[x]]);
+        if (dis_l < dis_r) {
+            std::swap(lc[x], rc[x]);
+        }
+        dis[x] = (rc[x] == -1 ? 0 : dis[rc[x]] + 1);
+        return x;
+    }
+
    public:
     priority_queue() {
         v = (T*)malloc(sizeof(T) * init_chunk);
@@ -108,6 +122,14 @@ class priority_queue {
      * @note Its time complexity shall be O(log n).
      */
     void push(const T& cur_element) {
+        if (len == max_len) double_space();
+        int idx = len;
+        new (&v[idx]) T(cur_element);
+        lc[idx] = -1;
+        rc[idx] = -1;
+        dis[idx] = 0;
+        root = merge_node(root, idx);
+        ++len;
     }
 
     /**
@@ -131,6 +153,11 @@ class priority_queue {
         if (empty()) {
             throw container_is_empty();
         }
+        int old_root = root;
+        root = merge_node(lc[old_root], rc[old_root]);
+        v[old_root].~T();
+        --len;
+        if (len == 0) root = -1;
     }
 
     /**
@@ -169,6 +196,11 @@ class priority_queue {
      * @note Its time complexity shall be O(log n).
      */
     void merge(priority_queue& other) {
+        if (&other == this || other.empty()) return;
+        root = merge_node(root, other.root);
+        len += other.len;
+        other.root = -1;
+        other.len = 0;
     }
 };
 
