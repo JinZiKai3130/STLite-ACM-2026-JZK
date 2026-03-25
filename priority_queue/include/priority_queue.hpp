@@ -1,205 +1,152 @@
 #ifndef SJTU_PRIORITY_QUEUE_HPP
 #define SJTU_PRIORITY_QUEUE_HPP
 
-#include <cmath>    // maybe you need it
-#include <cstddef>  // for size_t
-#include <cstdlib>
+#include <cmath>       // in case you need it
+#include <cstddef>     // for size_t
 #include <functional>  // for std::less
 
 #include "exceptions.hpp"
 
 namespace sjtu {
 
+/**
+ * @brief A container automatically sorting its contents, similar to
+ * std::priority_queue but with extra functionalities.
+ *
+ * The extra functionalities are:
+ * - Merge two priority queues into one (with good time complexity).
+ * - Clear all elements in the queue.
+ * - Limited exception safety for some operations (e.g. push, pop, top, merge)
+ * when the comparator throws exceptions from `Compare` only.
+ *
+ * This @priority_queue does not support passing an underlying container as a
+ * template parameter. Also, it does not support passing a comparator object as
+ * a constructor argument.
+ *
+ */
 template <class T, class Compare = std::less<T>>
 class priority_queue {
    private:
-    T* v;
-    int* lc;
-    int* rc;
-    int* dis;
-    size_t len;
-    size_t max_len;
-    int root;
-    const int init_chunk = 8;
-    Compare comp;
+    struct Node {
+        T val;
+        Node* l;
+        Node* r;
+        int dis;
+        Node(const T& v) : val(v), l(nullptr), r(nullptr), dis(0) {
+        }
+    };
 
-    void double_space() {
-        const auto tmp = *this;
-        for (int i = 0; i < len; i++) {
-            v[i].~T();
-        }
-        free(v);
-        free(lc);
-        free(rc);
-        free(dis);
-        max_len *= 2;
-        v = (T*)malloc(sizeof(T) * max_len);
-        lc = (int*)malloc(sizeof(int) * max_len);
-        rc = (int*)malloc(sizeof(int) * max_len);
-        dis = (int*)malloc(sizeof(int) * max_len);
-        for (size_t i = 0; i < len; i++) {
-            new (&v[i]) T(tmp.v[i]);
-            new (&lc[i]) int(tmp.lc[i]);
-            new (&rc[i]) int(tmp.rc[i]);
-            new (&dis[i]) int(tmp.dis[i]);
-        }
+    Node* root;
+    size_t len;
+    Compare comp;
+    Node* merge_node(Node* a, Node* b) {
+        if (!a) return b;
+        if (!b) return a;
+        if (comp(a->val, b->val)) std::swap(a, b);
+        a->r = merge_node(a->r, b);
+        int dis_l = (a->l ? a->l->dis : -1);
+        int dis_r = (a->r ? a->r->dis : -1);
+        if (dis_l < dis_r) std::swap(a->l, a->r);
+        a->dis = (a->r ? a->r->dis + 1 : 0);
+        return a;
     }
 
-    int merge_node(int x, int y) {
-        if (x == -1) return y;
-        if (y == -1) return x;
-        if (comp(v[x], v[y])) std::swap(x, y);  // v[x]小于v[y]
-        rc[x] = merge_node(rc[x], y);
-        int dis_l = (lc[x] == -1 ? -1 : dis[lc[x]]);
-        int dis_r = (lc[x] == -1 ? -1 : dis[rc[x]]);
-        if (dis_l < dis_r) {
-            std::swap(lc[x], rc[x]);
-        }
-        dis[x] = (rc[x] == -1 ? 0 : dis[rc[x]] + 1);
-        return x;
+    Node* clone(Node* other) {
+        if (!other) return nullptr;
+        Node* p = new Node(other->val);
+        p->dis = other->dis;
+        p->l = clone(other->l);
+        p->r = clone(other->r);
+        return p;
+    }
+
+    void destroy(Node* cur) {
+        if (!cur) return;
+        cur->val.~T();
+        destroy(cur->l);
+        destroy(cur->r);
     }
 
    public:
-    priority_queue() {
-        v = (T*)malloc(sizeof(T) * init_chunk);
-        lc = (int*)malloc(sizeof(int) * init_chunk);
-        rc = (int*)malloc(sizeof(int) * init_chunk);
-        dis = (int*)malloc(sizeof(int) * init_chunk);
-        len = 0;
-        root = -1;
-        max_len = init_chunk;
+    priority_queue() : root(nullptr), len(0), comp(Compare()) {
     }
-    priority_queue(const priority_queue& other) {
-        len = other.len;
-        max_len = other.max_len;
-        root = other.root;
-        v = (T*)malloc(sizeof(T) * max_len);
-        lc = (int*)malloc(sizeof(int) * max_len);
-        rc = (int*)malloc(sizeof(int) * max_len);
-        dis = (int*)malloc(sizeof(int) * max_len);
-
-        for (size_t i = 0; i < len; i++) {
-            new (&v[i]) T(other.v[i]);
-            new (&lc[i]) int(other.lc[i]);
-            new (&rc[i]) int(other.rc[i]);
-            new (&dis[i]) int(other.dis[i]);
-        }
+    priority_queue(const priority_queue& other)
+        : root(clone(other.root)), len(other.len), comp(other.comp) {
     }
     ~priority_queue() {
-        for (size_t i = 0; i < len; i++) {
-            v[i].~T();
-        }
-        free(v);
-        free(lc);
-        free(rc);
-        free(dis);
+        destroy(root);
     }
 
     priority_queue& operator=(const priority_queue& other) {
-        if (this == &other) {
-            return *this;
-        }
-        clear();
+        if (this == &other) return *this;
+        Node* tmp = clone(other.root);
+        destroy(root);
+        root = tmp;
         len = other.len;
-        max_len = other.max_len;
-        root = other.root;
-        v = (T*)malloc(sizeof(T) * max_len);
-        lc = (int*)malloc(sizeof(int) * max_len);
-        rc = (int*)malloc(sizeof(int) * max_len);
-        dis = (int*)malloc(sizeof(int) * max_len);
-
-        for (size_t i = 0; i < len; i++) {
-            new (&v[i]) T(other.v[i]);
-            new (&lc[i]) int(other.lc[i]);
-            new (&rc[i]) int(other.rc[i]);
-            new (&dis[i]) int(other.dis[i]);
-        }
+        comp = other.comp;
         return *this;
     }
 
-    /**
-     * @brief Push one element into the queue.
-     * @note Its time complexity shall be O(log n).
-     */
-    void push(const T& cur_element) {
-        if (len == max_len) double_space();
-        int idx = len;
-        new (&v[idx]) T(cur_element);
-        lc[idx] = -1;
-        rc[idx] = -1;
-        dis[idx] = 0;
-        root = merge_node(root, idx);
+    /** Adds one element to the queue. */
+    void push(const T& cur) {
+        Node* p = new Node(cur);
+        root = merge_node(root, p);
         ++len;
     }
 
     /**
-     * @return A const reference of the top element in the queue.
-     * @throws container_is_empty when the top element does not exist.
-     * @note Its time complexity shall be O(1).
+     * Returns a read-only reference of the first element in the queue.
+     *
+     * @throws container_is_empty when the first element does not exist.
      */
     const T& top() const {
-        if (empty()) {
-            throw container_is_empty();
-        }
-        return v[root];
+        if (empty()) throw container_is_empty();
+        return root->val;
     }
 
     /**
-     * @brief remove the top element in the queue.
-     * @throws container_is_empty when the top element does not exist.
-     * @note Its time complexity shall be O(n).
+     * Removes the first element in the queue.
+     *
+     * @throws container_is_empty when the first element does not exist.
      */
     void pop() {
-        if (empty()) {
-            throw container_is_empty();
-        }
-        int old_root = root;
-        root = merge_node(lc[old_root], rc[old_root]);
-        v[old_root].~T();
+        if (empty()) throw container_is_empty();
+        Node* old = root;
+        root = merge_node(root->l, root->r);
+        delete old;
         --len;
-        if (len == 0) root = -1;
     }
 
-    /**
-     * @return number of elements in the queue.
-     */
+    /** Returns the number of elements in the queue. */
     size_t size() const {
         return len;
     }
 
-    /**
-     * @return whether there is any element in the queue.
-     */
+    /** Returns whether there is any element in the queue. */
     bool empty() const {
         return (len == 0);
     }
 
-    /**
-     * @brief Clear all elements in the queue.
-     * @note Its time complexity shall be O(n).
-     */
+    /** Clears all elements in the queue. */
     void clear() {
-        for (size_t i = 0; i < len; i++) {
-            v[i].~T();
-        }
-        free(v);
-        free(lc);
-        free(rc);
-        free(dis);
+        destroy(root);
         len = 0;
-        root = -1;
-        max_len = init_chunk;
+        root = nullptr;
     }
 
     /**
-     * @brief Merge element sets of two queues.
-     * @note Its time complexity shall be O(log n).
+     * @brief Merges two priority queues into one.
+     *
+     * The merged data shall be stored in the current priority queue and the
+     * other priority queue shall be cleared after merging.
+     *
+     * The time complexity shall be O(log n) or better.
      */
     void merge(priority_queue& other) {
-        if (&other == this || other.empty()) return;
+        if (this == &other || other.empty()) return;
         root = merge_node(root, other.root);
         len += other.len;
-        other.root = -1;
+        other.root = nullptr;
         other.len = 0;
     }
 };
