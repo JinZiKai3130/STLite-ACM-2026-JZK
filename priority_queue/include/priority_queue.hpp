@@ -55,16 +55,21 @@ class priority_queue {
         if (!other) return nullptr;
         Node* p = new Node(other->val);
         p->dis = other->dis;
-        p->l = clone(other->l);
-        p->r = clone(other->r);
+        try {
+            p->l = clone(other->l);
+            p->r = clone(other->r);
+        } catch (...) {
+            destroy(p);
+            throw;
+        }
         return p;
     }
 
     void destroy(Node* cur) {
         if (!cur) return;
-        cur->val.~T();
         destroy(cur->l);
         destroy(cur->r);
+        delete cur;
     }
 
    public:
@@ -90,8 +95,13 @@ class priority_queue {
     /** Adds one element to the queue. */
     void push(const T& cur) {
         Node* p = new Node(cur);
-        root = merge_node(root, p);
-        ++len;
+        try {
+            root = merge_node(root, p);
+            ++len;
+        } catch (...) {
+            delete p;
+            throw;
+        }
     }
 
     /**
