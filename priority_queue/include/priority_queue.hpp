@@ -35,7 +35,6 @@ class priority_queue {
         Node(const T& v) : val(v), l(nullptr), r(nullptr), dis(0) {
         }
     };
-
     Node* root;
     size_t len;
     Compare comp;
@@ -116,7 +115,6 @@ class priority_queue {
 
     /**
      * Removes the first element in the queue.
-     *
      * @throws container_is_empty when the first element does not exist.
      */
     void pop() {
