@@ -75,38 +75,79 @@ class map {
          *   just add whatever you want.
          */
         Node* cur;
+        Node* root_;
 
        public:
-        iterator() {
-            // TODO
+        iterator() : cur(nullptr), root_(nullptr) {
         }
-
-        iterator(const iterator& other) {
-            // TODO
+        iterator(Node* cur, Node* root_) : cur(cur), root_(root_) {
+        }
+        iterator(const iterator& other) : cur(other.cur), root_(other.root_) {
         }
 
         /**
          * TODO iter++
          */
         iterator operator++(int) {
+            if (!cur) throw invalid_iterator();
+
+            if (cur->rc) {
+                cur = cur->rc;
+                while (cur->lc) cur = cur->lc;
+            } else {
+                Node* p = cur;
+                Node* parent = p->fa;
+                while (parent && p == parent->rc) {
+                    p = parent;
+                    parent = parent->fa;
+                }
+                cur = parent;
+            }
+            return *this;
         }
 
         /**
          * TODO ++iter
          */
         iterator& operator++() {
+            iterator tmp = *this;
+            ++(*this);
+            return tmp;
         }
 
         /**
          * TODO iter--
          */
         iterator operator--(int) {
+            if (!cur) {                                // end的情况
+                if (!root_) throw invalid_iterator();  // empty tree
+                cur = root_;
+                while (cur->rc) cur = cur->rc;  // find the last element
+                return *this;
+            }
+            if (cur->lc) {
+                cur = cur->lc;
+                while (cur->rc) cur = cur->rc;
+            } else {
+                Node* p = cur;
+                Node* parent = p->fa;
+                while (parent && p == parent->lc) {
+                    p = parent;
+                    parent = parent->fa;
+                }
+                if (!parent) throw invalid_iterator();  // cur = begin
+                cur = parent;
+            }
+            return *this;
         }
 
         /**
          * TODO --iter
          */
         iterator& operator--() {
+            iterator tmp = *this;
+            --(*this);
+            return tmp;
         }
 
         /**
@@ -114,21 +155,27 @@ class map {
          * same memory).
          */
         value_type& operator*() const {
+            if (!cur) throw invalid_iterator();
+            return cur->data;
         }
 
         bool operator==(const iterator& rhs) const {
+            return (cur == rhs.cur);
         }
 
         bool operator==(const const_iterator& rhs) const {
+            return (cur == rhs.cur);
         }
 
         /**
          * some other operator for iterator.
          */
         bool operator!=(const iterator& rhs) const {
+            return (cur != rhs.cur);
         }
 
         bool operator!=(const const_iterator& rhs) const {
+            return (cur != rhs.cur);
         }
 
         /**
@@ -138,6 +185,8 @@ class map {
          * for help.
          */
         value_type* operator->() const noexcept {
+            if (!cur) throw invalid_iterator();
+            return &(cur->data);
         }
     };
     class const_iterator {
@@ -146,22 +195,123 @@ class map {
        private:
         // data members.
         const Node* cur;
+        const Node* root_;
 
        public:
-        const_iterator() {
-            // TODO
+        const_iterator() : cur(nullptr), root_(nullptr) {
+        }
+        const_iterator(Node* cur, Node* root_) : cur(cur), root_(root_) {
+        }
+        const_iterator(const const_iterator& other)
+            : cur(other.cur), root_(other.root_) {
+        }
+        const_iterator(const iterator& other)
+            : cur(other.cur), root_(other.root_) {
         }
 
-        const_iterator(const const_iterator& other) {
-            // TODO
+        /**
+         * TODO iter++
+         */
+        const_iterator operator++(int) {
+            if (!cur) throw invalid_iterator();
+
+            if (cur->rc) {
+                cur = cur->rc;
+                while (cur->lc) cur = cur->lc;
+            } else {
+                Node* p = cur;
+                Node* parent = p->fa;
+                while (parent && p == parent->rc) {
+                    p = parent;
+                    parent = parent->fa;
+                }
+                cur = parent;
+            }
+            return *this;
         }
 
-        const_iterator(const iterator& other) {
-            // TODO
+        /**
+         * TODO ++iter
+         */
+        const_iterator& operator++() {
+            iterator tmp = *this;
+            ++(*this);
+            return tmp;
         }
-        // And other methods in iterator.
-        // And other methods in iterator.
-        // And other methods in iterator.
+
+        /**
+         * TODO iter--
+         */
+        const_iterator operator--(int) {
+            if (!cur) {                                // end的情况
+                if (!root_) throw invalid_iterator();  // empty tree
+                cur = root_;
+                while (cur->rc) cur = cur->rc;  // find the last element
+                return *this;
+            }
+            if (cur->lc) {
+                cur = cur->lc;
+                while (cur->rc) cur = cur->rc;
+            } else {
+                Node* p = cur;
+                Node* parent = p->fa;
+                while (parent && p == parent->lc) {
+                    p = parent;
+                    parent = parent->fa;
+                }
+                if (!parent) throw invalid_iterator();  // cur = begin
+                cur = parent;
+            }
+            return *this;
+        }
+
+        /**
+         * TODO --iter
+         */
+        const_iterator& operator--() {
+            iterator tmp = *this;
+            --(*this);
+            return tmp;
+        }
+
+        /**
+         * a operator to check whether two iterators are same (pointing to the
+         * same memory).
+         */
+        value_type& operator*() const {
+            if (!cur) throw invalid_iterator();
+            return cur->data;
+        }
+
+        bool operator==(const iterator& rhs) const {
+            return (cur == rhs.cur);
+        }
+
+        bool operator==(const const_iterator& rhs) const {
+            return (cur == rhs.cur);
+        }
+
+        /**
+         * some other operator for iterator.
+         */
+        bool operator!=(const iterator& rhs) const {
+            return (cur != rhs.cur);
+        }
+
+        bool operator!=(const const_iterator& rhs) const {
+            return (cur != rhs.cur);
+        }
+
+        /**
+         * for the support of it->first.
+         * See
+         * <http://kelvinh.github.io/blog/2013/11/20/overloading-of-member-access-operator-dash-greater-than-symbol-in-cpp/>
+         * for help.
+         */
+        value_type* operator->() const noexcept {
+            if (!cur) throw invalid_iterator();
+            return &(cur->data);
+        }
     };
 
    public:
@@ -253,18 +403,22 @@ class map {
      * return true if empty, otherwise false.
      */
     bool empty() const {
+        return (capacity == 0);
     }
 
     /**
      * returns the number of elements.
      */
     size_t size() const {
+        return capacity;
     }
 
     /**
      * clears the contents
      */
     void clear() {
+        destroy(root);
+        capacity = 0;
     }
 
     /**
