@@ -358,10 +358,23 @@ class map {
      * `index_out_of_bound'
      */
     T& at(const Key& key) {
+        iterator it = find(key);
+        try {
+            T result = *it;
+            return result;
+        } catch (...) {
+            throw index_out_of_bound();
+        }
     }
 
     const T& at(const Key& key) const {
-        // return *find(key);
+        iterator it = find(key);
+        try {
+            const T result = *it;
+            return result;
+        } catch (...) {
+            throw index_out_of_bound();
+        }
     }
 
     /**
@@ -371,21 +384,47 @@ class map {
      * key, performing an insertion if such key does not already exist.
      */
     T& operator[](const Key& key) {
+        iterator it = find(key);
+        try {
+            T result = *it;
+            return result;
+        } catch (...) {
+            T tmp;
+            auto cur_result = insert(value_type(key, tmp));
+            return tmp;
+        }
     }
 
     /**
      * behave like at() throw index_out_of_bound if such key does not exist.
      */
     const T& operator[](const Key& key) const {
+        iterator it = find(key);
+        try {
+            const T result = *it;
+            return result;
+        } catch (...) {
+            throw index_out_of_bound();
+        }
     }
 
     /**
      * return a iterator to the beginning
      */
     iterator begin() {
+        Node* p = root;
+        while (p->lc != nullptr) {
+            p = p->lc;
+        }
+        return iterator(p, root);
     }
 
     const_iterator cbegin() const {
+        Node* p = root;
+        while (p->lc != nullptr) {
+            p = p->lc;
+        }
+        return const_iterator(p, root);
     }
 
     /**
@@ -393,9 +432,19 @@ class map {
      * in fact, it returns past-the-end.
      */
     iterator end() {
+        Node* p = root;
+        while (p->rc != nullptr) {
+            p = p->rc;
+        }
+        return iterator(p, root);
     }
 
     const_iterator cend() const {
+        Node* p = root;
+        while (p->rc != nullptr) {
+            p = p->rc;
+        }
+        return const_iterator(p, root);
     }
 
     /**
@@ -447,6 +496,13 @@ class map {
      * The default method of check the equivalence is !(a < b || b > a)
      */
     size_t count(const Key& key) const {
+        iterator it = find(key);
+        try {
+            T result = *it;
+            return 1;
+        } catch (...) {
+            return 0;
+        }
     }
 
     /**
@@ -464,10 +520,10 @@ class map {
             } else
                 cur = cur->rc;
         }
-        // if (cur == nullptr)
-        //     return nullptr;
-        // else
-        //     return (value_type*)(&cur->data);
+        if (cur == nullptr)
+            return iterator(nullptr, root);
+        else
+            return iterator(cur, root);
     }
 
     const_iterator find(const Key& key) const {
@@ -478,10 +534,10 @@ class map {
             } else
                 cur = cur->rc;
         }
-        // if (cur == nullptr)
-        //     return nullptr;
-        // else
-        //     return (value_type*)(&cur->data);
+        if (cur == nullptr)
+            return const_iterator(nullptr, root);
+        else
+            return const_iterator(cur, root);
     }
 };
 
