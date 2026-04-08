@@ -52,6 +52,38 @@ class map {
         return p;
     }
 
+    int height(Node* cur) {
+        return (cur == nullptr) ? 0 : cur->height;
+    }
+
+    void LL(Node*& t) {
+        Node* tl = t->lc;
+        t->lc = tl->rc;
+        tl->rc = t;
+        t->height = std::max(height(t->lc), height(t->rc)) + 1;
+        tl->height = std::max(height(tl->lc), height(t)) + 1;
+        t = tl;
+    }
+
+    void RR(Node*& t) {
+        Node* tr = t->rc;
+        t->rc = tr->lc;
+        tr->lc = t;
+        t->height = std::max(height(t->lc), height(t->rc)) + 1;
+        tr->height = std::max(height(tr->lc), height(tr->rc)) + 1;
+        t = tr;
+    }
+
+    void LR(Node*& t) {
+        RR(t->lc);
+        LL(t);
+    }
+
+    void RL(Node*& t) {
+        LL(t->rc);
+        RR(t);
+    }
+
    public:
     /**
      * the internal type of data.
@@ -477,6 +509,32 @@ class map {
      * insertion), the second one is true if insert successfully, or false.
      */
     pair<iterator, bool> insert(const value_type& value) {
+        Node* ptr = root;
+        if (ptr == nullptr) {
+            ptr = new Node(value, nullptr, nullptr, 0);
+        } else if (value.first < ptr->data.first) {
+            if (!insert(value, ptr->lc).second)
+                return std::make_pair(iterator(ptr, root), 0);
+            if (height(ptr->lc) - height(ptr->rc) == 2) {
+                if (value.first < ptr->lc->data.first)
+                    LL(ptr);
+                else
+                    LR(ptr);
+            }
+        } else if (ptr->data.first < value.first) {
+            if (!insert(value, ptr->rc).second)
+                return std::make_pair(iterator(ptr, root), 0);
+            if (height(ptr->rc) - height(ptr->lc) == 2) {
+                if (ptr->rc->data.first < value.first)
+                    RR(ptr);
+                else
+                    RL(ptr);
+            }
+        } else {
+            return std::make_pair(iterator(ptr, root), 0);
+        }
+        if (ptr == root) capacity++;
+        return std::make_pair(iterator(ptr, root), 1);
     }
 
     /**
