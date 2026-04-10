@@ -23,7 +23,7 @@ class map {
         Node* rc;
         Node* fa;
         int height;
-        Node(value_type& element, Node* lc, Node* rc, int h = 0)
+        Node(const value_type& element, Node* lc, Node* rc, int h = 0)
             : data(element), lc(lc), rc(rc), height(h) {
         }
     };
@@ -38,13 +38,13 @@ class map {
         delete cur;
     }
 
-    Node* clone(Node* other) {
+    Node* clone(Node* other, Node* parent) {
         if (other == nullptr) return nullptr;
-        Node* p = new Node(other->val);
-        p->height = other->height;
+        Node* p =
+            new Node(other->data, nullptr, nullptr, parent, other->height);
         try {
-            p->lc = clone(other->lc);
-            p->rc = clone(other->rc);
+            p->lc = clone(other->lc, p);
+            p->rc = clone(other->rc, p);
         } catch (...) {
             destroy(p);
             throw;
@@ -56,33 +56,88 @@ class map {
         return (cur == nullptr) ? 0 : cur->height;
     }
 
+    Node* insert_node(Node* node, Node* parent, const value_type& value,
+                      bool& inserted, Node*& out_node) {
+        if (!node) {  // 当前树为空
+            inserted = true;
+            out_node = new Node(value, nullptr, nullptr, parent, 0);
+            return out_node;
+        }
+        node->fa = parent;
+        if (comp(value.first, node->data.first)) {
+            node->lc = insert_node(node->lc, node, value, inserted, out_node);
+        } else if (comp(node->data.first, value.first)) {
+            node->rc = insert_node(node->rc, node, value, inserted, out_node);
+        } else {
+            inserted = false;
+            out_node = node;
+            return node;
+        }
+        node = rebalance(node);
+        node->fa = parent;
+        return node;
+    }
+
+    Node* rebalance(Node* node) {
+        if (!node) return node;
+        node->height = std::max(height(node->lc), height(node->rc)) + 1;
+        int balance = height(node->lc) - height(node->rc);
+        if (balance > 1) {
+            if (height(node->lc->lc) - height(node->lc->rc) >= 0) {
+                node = LL(node);  // 树右旋
+            } else {
+                node->lc = RR(node->lc);  // 左子树先左旋
+                if (node->lc) node->lc->fa = node;
+                node = LL(node);  // 树右旋
+            }
+        } else if (balance < -1) {
+            if (height(node->rc->rc) - height(node->rc->lc) >= 0) {
+                node = RR(node);
+            } else {
+                node->rc = LL(node->rc);
+                if (node->rc) node->rc->fa = node;
+                node = RR(node);
+            }
+        }
+        return node;
+    }
+
+    Node* erase_node(Node* node, Node* parent, bool& erased) {
+    }
+
     void LL(Node*& t) {
         Node* tl = t->lc;
         t->lc = tl->rc;
+        if (t->lc) t->lc->fa = t;
         tl->rc = t;
+        tl->fa = t->fa;
+        t->fa = tl;
         t->height = std::max(height(t->lc), height(t->rc)) + 1;
-        tl->height = std::max(height(tl->lc), height(t)) + 1;
+        tl->height = std::max(height(tl->lc), height(tl->rc)) + 1;
         t = tl;
     }
 
     void RR(Node*& t) {
         Node* tr = t->rc;
         t->rc = tr->lc;
+        if (t->rc) t->rc->fa = t;
         tr->lc = t;
+        tr->fa = t->fa;
+        t->fa = tr;
         t->height = std::max(height(t->lc), height(t->rc)) + 1;
         tr->height = std::max(height(tr->lc), height(tr->rc)) + 1;
         t = tr;
     }
 
-    void LR(Node*& t) {
-        RR(t->lc);
-        LL(t);
-    }
+    // void LR(Node*& t) {
+    //     RR(t->lc);
+    //     LL(t);
+    // }
 
-    void RL(Node*& t) {
-        LL(t->rc);
-        RR(t);
-    }
+    // void RL(Node*& t) {
+    //     LL(t->rc);
+    //     RR(t);
+    // }
 
    public:
     /**
@@ -355,7 +410,7 @@ class map {
     }
 
     map(const map& other) {
-        root(clone(other.root));
+        root(clone(other.root, nullptr));
         comp = other.comp;
         capacity = other.capacity;
     }
@@ -365,7 +420,7 @@ class map {
      */
     map& operator=(const map& other) {
         if (this == &other) return *this;
-        Node* tmp = clone(other.root);
+        Node* tmp = clone(other.root, nullptr);
         destroy(root);
         root = tmp;
         comp = other.comp;
@@ -391,22 +446,14 @@ class map {
      */
     T& at(const Key& key) {
         iterator it = find(key);
-        try {
-            T result = *it;
-            return result;
-        } catch (...) {
-            throw index_out_of_bound();
-        }
+        if (it == end()) throw index_out_of_bound();
+        return it->second;
     }
 
     const T& at(const Key& key) const {
-        iterator it = find(key);
-        try {
-            const T result = *it;
-            return result;
-        } catch (...) {
-            throw index_out_of_bound();
-        }
+        const_iterator it = find(key);
+        if (it == end()) throw index_out_of_bound();
+        return it->second;
     }
 
     /**
@@ -417,27 +464,19 @@ class map {
      */
     T& operator[](const Key& key) {
         iterator it = find(key);
-        try {
-            T result = *it;
-            return result;
-        } catch (...) {
-            T tmp;
-            auto cur_result = insert(value_type(key, tmp));
-            return tmp;
-        }
+        if (it != end()) return it->second;
+        value_type val(key, T());
+        pair<iterator, bool> res = insert(val);
+        return res.first->second;
     }
 
     /**
      * behave like at() throw index_out_of_bound if such key does not exist.
      */
     const T& operator[](const Key& key) const {
-        iterator it = find(key);
-        try {
-            const T result = *it;
-            return result;
-        } catch (...) {
-            throw index_out_of_bound();
-        }
+        const_iterator it = find(key);
+        if (it == cend()) throw index_out_of_bound();
+        return it->second;
     }
 
     /**
@@ -464,19 +503,11 @@ class map {
      * in fact, it returns past-the-end.
      */
     iterator end() {
-        Node* p = root;
-        while (p->rc != nullptr) {
-            p = p->rc;
-        }
-        return iterator(p, root);
+        return iterator(nullptr, root);
     }
 
     const_iterator cend() const {
-        Node* p = root;
-        while (p->rc != nullptr) {
-            p = p->rc;
-        }
-        return const_iterator(p, root);
+        return const_iterator(nullptr, root);
     }
 
     /**
@@ -499,6 +530,7 @@ class map {
      */
     void clear() {
         destroy(root);
+        root = nullptr;
         capacity = 0;
     }
 
@@ -509,32 +541,12 @@ class map {
      * insertion), the second one is true if insert successfully, or false.
      */
     pair<iterator, bool> insert(const value_type& value) {
-        Node* ptr = root;
-        if (ptr == nullptr) {
-            ptr = new Node(value, nullptr, nullptr, 0);
-        } else if (value.first < ptr->data.first) {
-            if (!insert(value, ptr->lc).second)
-                return std::make_pair(iterator(ptr, root), 0);
-            if (height(ptr->lc) - height(ptr->rc) == 2) {
-                if (value.first < ptr->lc->data.first)
-                    LL(ptr);
-                else
-                    LR(ptr);
-            }
-        } else if (ptr->data.first < value.first) {
-            if (!insert(value, ptr->rc).second)
-                return std::make_pair(iterator(ptr, root), 0);
-            if (height(ptr->rc) - height(ptr->lc) == 2) {
-                if (ptr->rc->data.first < value.first)
-                    RR(ptr);
-                else
-                    RL(ptr);
-            }
-        } else {
-            return std::make_pair(iterator(ptr, root), 0);
-        }
-        if (ptr == root) capacity++;
-        return std::make_pair(iterator(ptr, root), 1);
+        bool inserted = false;
+        Node* out_node = nullptr;
+        root = insert_node(root, nullptr, value, inserted, out_node);
+        if (root) root->fa = nullptr;
+        if (inserted) capacity++;
+        return pair<iterator, bool>(iterator(out_node, root), inserted);
     }
 
     /**
@@ -555,12 +567,10 @@ class map {
      */
     size_t count(const Key& key) const {
         iterator it = find(key);
-        try {
-            T result = *it;
-            return 1;
-        } catch (...) {
+        if (it == end())
             return 0;
-        }
+        else
+            return 1;
     }
 
     /**
@@ -572,30 +582,30 @@ class map {
      */
     iterator find(const Key& key) {
         Node* cur = root;
-        while (cur != nullptr && cur->data.first != key) {
-            if (cur->data.first > key) {
+        while (cur != nullptr) {
+            if (comp(key, cur->data.first)) {
                 cur = cur->lc;
-            } else
+            } else if (comp(cur, cur->data.first)) {
                 cur = cur->rc;
+            } else {
+                break;
+            }
         }
-        if (cur == nullptr)
-            return iterator(nullptr, root);
-        else
-            return iterator(cur, root);
+        return iterator(cur, root);
     }
 
     const_iterator find(const Key& key) const {
         Node* cur = root;
-        while (cur != nullptr && cur->data.first != key) {
-            if (cur->data.first > key) {
+        while (cur != nullptr) {
+            if (comp(key, cur->data.first)) {
                 cur = cur->lc;
-            } else
+            } else if (comp(cur, cur->data.first)) {
                 cur = cur->rc;
+            } else {
+                break;
+            }
         }
-        if (cur == nullptr)
-            return const_iterator(nullptr, root);
-        else
-            return const_iterator(cur, root);
+        return const_iterator(cur, root);
     }
 };
 
