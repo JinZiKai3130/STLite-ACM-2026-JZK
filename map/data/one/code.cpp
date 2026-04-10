@@ -39,8 +39,10 @@ class Compare {
 void tester(void) {
     //	test: constructor
     sjtu::map<Integer, std::string, Compare> map;
+    // std::cerr << "constructor ok\n";
     //	test: empty(), size()
     assert(map.empty() && map.size() == 0);
+    // std::cerr << "empty() size() ok\n";
     //	test: operator[], insert()
     for (int i = 0; i < 100000; ++i) {
         std::string string = "";
@@ -59,15 +61,18 @@ void tester(void) {
             assert(result.second);
         }
     }
+    // std::cerr << "operator[] insert() ok\n";
     //	test: count(), find(), erase()
     for (int i = 0; i < 100000; ++i) {
         if (i > 1896 && i <= 2016) {
             continue;
         }
+        // std::cerr << "i = " << i << std::endl;
         assert(map.count(Integer(i)) == 1);
         assert(map.find(Integer(i)) != map.end());
         map.erase(map.find(Integer(i)));
     }
+    // std::cerr << "count() find() erase() ok\n";
     //	test: constructor, operator=, clear();
     for (int i = 0; i < (int)map.size(); ++i) {
         sjtu::map<Integer, std::string, Compare> copy(map);
@@ -104,16 +109,23 @@ void tester(void) {
         }
         std::cout << (--iterator)->second << " ";
     }
+    // std::cerr << "test: iterator, operator--, operator->\n";
     //	test: erase()
+    int cnt = 0;
     while (map.begin() != map.end()) {
+        cnt++;
+        // std::cerr << "erasing " << cnt << "\n";
         map.erase(map.begin());
     }
+    // std::cerr << "get out the loop\n";
     assert(map.empty() && map.size() == 0);
+    // std::cerr << "erase ok\n";
     //	test: operator[]
     for (int i = 0; i < 100000; ++i) {
         std::cout << map[Integer(i)];
     }
     std::cout << map.size() << std::endl;
+    // std::cerr << "mapsize() ok\n";
 }
 
 int main(void) {

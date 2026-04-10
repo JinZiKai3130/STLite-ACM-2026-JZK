@@ -7,6 +7,7 @@
 // only for std::less<T>
 #include <cstddef>
 #include <functional>
+#include <iostream>
 
 #include "exceptions.hpp"
 #include "utility.hpp"
@@ -15,16 +16,18 @@ namespace sjtu {
 
 template <class Key, class T, class Compare = std::less<Key> >
 class map {
-   private:
+   public:
     typedef pair<const Key, T> value_type;
+
+   private:
     struct Node {
         value_type data;
         Node* lc;
         Node* rc;
         Node* fa;
         int height;
-        Node(const value_type& element, Node* lc, Node* rc, int h = 0)
-            : data(element), lc(lc), rc(rc), height(h) {
+        Node(const value_type& element, Node* lc, Node* rc, Node* fa, int h = 0)
+            : data(element), lc(lc), rc(rc), fa(fa), height(h) {
         }
     };
     Node* root;
@@ -107,10 +110,11 @@ class map {
         node->fa = parent;
         if (!node->lc) {  // lc是空，i.e.已经找到
             min_node = node;
-            if (node->rc) node->rc->fa = node->fa;
+            Node* right_child = node->rc;
+            if (right_child) right_child->fa = node->fa;
             min_node->lc = nullptr;
             min_node->rc = nullptr;
-            return node->rc;
+            return right_child;
         }
         node->lc = find_min(node->lc, node, min_node);
         node = rebalance(node);
@@ -119,6 +123,7 @@ class map {
     }
 
     Node* erase_node(Node* node, Node* parent, const Key& key, bool& erased) {
+        // std::cerr << "erase_node now\n";
         if (!node) return nullptr;
         node->fa = parent;
         if (comp(key, node->data.first)) {
@@ -128,6 +133,7 @@ class map {
         } else {
             erased = true;
             if (!node->lc && !node->rc) {  // 没有子节点
+                // std::cerr << "no subtree\n";
                 delete node;
                 return nullptr;
             } else if (!node->lc || !node->rc) {  // 1个子节点
@@ -153,7 +159,7 @@ class map {
         return node;
     }
 
-    void LL(Node*& t) {
+    Node* LL(Node*& t) {
         Node* tl = t->lc;
         t->lc = tl->rc;
         if (t->lc) t->lc->fa = t;
@@ -163,9 +169,10 @@ class map {
         t->height = std::max(height(t->lc), height(t->rc)) + 1;
         tl->height = std::max(height(tl->lc), height(tl->rc)) + 1;
         t = tl;
+        return t;
     }
 
-    void RR(Node*& t) {
+    Node* RR(Node*& t) {
         Node* tr = t->rc;
         t->rc = tr->lc;
         if (t->rc) t->rc->fa = t;
@@ -175,6 +182,7 @@ class map {
         t->height = std::max(height(t->lc), height(t->rc)) + 1;
         tr->height = std::max(height(tr->lc), height(tr->rc)) + 1;
         t = tr;
+        return t;
     }
 
     // void LR(Node*& t) {
@@ -204,15 +212,13 @@ class map {
      */
     class const_iterator;
     class iterator {
-       private:
+       public:
         /**
          * TODO add data members
          *   just add whatever you want.
          */
         Node* cur;
         Node* root_;
-
-       public:
         iterator() : cur(nullptr), root_(nullptr) {
         }
         iterator(Node* cur, Node* root_) : cur(cur), root_(root_) {
@@ -223,7 +229,7 @@ class map {
         /**
          * TODO iter++
          */
-        iterator operator++(int) {
+        iterator& operator++() {
             if (!cur) throw invalid_iterator();
 
             if (cur->rc) {
@@ -244,7 +250,7 @@ class map {
         /**
          * TODO ++iter
          */
-        iterator& operator++() {
+        iterator operator++(int) {
             iterator tmp = *this;
             ++(*this);
             return tmp;
@@ -253,7 +259,7 @@ class map {
         /**
          * TODO iter--
          */
-        iterator operator--(int) {
+        iterator& operator--() {
             if (!cur) {                                // end的情况
                 if (!root_) throw invalid_iterator();  // empty tree
                 cur = root_;
@@ -279,7 +285,7 @@ class map {
         /**
          * TODO --iter
          */
-        iterator& operator--() {
+        iterator operator--(int) {
             iterator tmp = *this;
             --(*this);
             return tmp;
@@ -295,22 +301,22 @@ class map {
         }
 
         bool operator==(const iterator& rhs) const {
-            return (cur == rhs.cur);
+            return (cur == rhs.cur) && (root_ == rhs.root_);
         }
 
         bool operator==(const const_iterator& rhs) const {
-            return (cur == rhs.cur);
+            return (cur == rhs.cur) && (root_ == rhs.root_);
         }
 
         /**
          * some other operator for iterator.
          */
         bool operator!=(const iterator& rhs) const {
-            return (cur != rhs.cur);
+            return !(*this == rhs);
         }
 
         bool operator!=(const const_iterator& rhs) const {
-            return (cur != rhs.cur);
+            return !(*this == rhs);
         }
 
         /**
@@ -320,7 +326,6 @@ class map {
          * for help.
          */
         value_type* operator->() const noexcept {
-            if (!cur) throw invalid_iterator();
             return &(cur->data);
         }
 
@@ -331,12 +336,11 @@ class map {
     class const_iterator {
         // it should has similar member method as iterator.
         //  and it should be able to construct from an iterator.
-       private:
-        // data members.
-        const Node* cur;
-        const Node* root_;
-
        public:
+        // data members.
+        Node* cur;
+        Node* root_;
+
         const_iterator() : cur(nullptr), root_(nullptr) {
         }
         const_iterator(Node* cur, Node* root_) : cur(cur), root_(root_) {
@@ -351,7 +355,7 @@ class map {
         /**
          * TODO iter++
          */
-        const_iterator operator++(int) {
+        const_iterator& operator++() {
             if (!cur) throw invalid_iterator();
 
             if (cur->rc) {
@@ -372,8 +376,8 @@ class map {
         /**
          * TODO ++iter
          */
-        const_iterator& operator++() {
-            iterator tmp = *this;
+        const_iterator operator++(int) {
+            const_iterator tmp = *this;
             ++(*this);
             return tmp;
         }
@@ -381,7 +385,7 @@ class map {
         /**
          * TODO iter--
          */
-        const_iterator operator--(int) {
+        const_iterator& operator--() {
             if (!cur) {                                // end的情况
                 if (!root_) throw invalid_iterator();  // empty tree
                 cur = root_;
@@ -407,8 +411,8 @@ class map {
         /**
          * TODO --iter
          */
-        const_iterator& operator--() {
-            iterator tmp = *this;
+        const_iterator operator--(int) {
+            const_iterator tmp = *this;
             --(*this);
             return tmp;
         }
@@ -423,22 +427,22 @@ class map {
         }
 
         bool operator==(const iterator& rhs) const {
-            return (cur == rhs.cur);
+            return (cur == rhs.cur) && (root_ == rhs.root_);
         }
 
         bool operator==(const const_iterator& rhs) const {
-            return (cur == rhs.cur);
+            return (cur == rhs.cur) && (root_ == rhs.root_);
         }
 
         /**
          * some other operator for iterator.
          */
         bool operator!=(const iterator& rhs) const {
-            return (cur != rhs.cur);
+            return !(*this == rhs);
         }
 
         bool operator!=(const const_iterator& rhs) const {
-            return (cur != rhs.cur);
+            return !(*this == rhs);
         }
 
         /**
@@ -448,7 +452,6 @@ class map {
          * for help.
          */
         value_type* operator->() const noexcept {
-            if (!cur) throw invalid_iterator();
             return &(cur->data);
         }
 
@@ -461,12 +464,11 @@ class map {
     /**
      * TODO two constructors
      */
-    map() {
-        root = nullptr;
+    map() : root(nullptr), capacity(0), comp(Compare()) {
     }
 
     map(const map& other) {
-        root(clone(other.root, nullptr));
+        root = clone(other.root, nullptr);
         comp = other.comp;
         capacity = other.capacity;
     }
@@ -508,7 +510,7 @@ class map {
 
     const T& at(const Key& key) const {
         const_iterator it = find(key);
-        if (it == end()) throw index_out_of_bound();
+        if (it == cend()) throw index_out_of_bound();
         return it->second;
     }
 
@@ -540,6 +542,7 @@ class map {
      */
     iterator begin() {
         Node* p = root;
+        if (!p) return iterator(nullptr, root);
         while (p->lc != nullptr) {
             p = p->lc;
         }
@@ -548,6 +551,7 @@ class map {
 
     const_iterator cbegin() const {
         Node* p = root;
+        if (!p) return const_iterator(nullptr, root);
         while (p->lc != nullptr) {
             p = p->lc;
         }
@@ -614,11 +618,13 @@ class map {
     void erase(iterator pos) {
         if (pos == end() || root != pos.get_root()) throw invalid_iterator();
         bool erased = false;
-        Key key = pos.cur->data.first;
+        Key key = (*pos).first;
         root = erase_node(root, nullptr, key, erased);
+
         if (root) root->fa = nullptr;
         if (!erased) throw invalid_iterator();
         capacity--;
+        // std::cerr << "capacity " << capacity << "\n";
     }
 
     /**
@@ -630,9 +636,11 @@ class map {
      */
     size_t count(const Key& key) const {
         const_iterator it = find(key);
-        if (it == cend())
+        // std::cerr << "find ok\n";
+        if (it == cend()) {
+            // std::cerr << "here0\n";
             return 0;
-        else
+        } else
             return 1;
     }
 
@@ -648,7 +656,7 @@ class map {
         while (cur != nullptr) {
             if (comp(key, cur->data.first)) {
                 cur = cur->lc;
-            } else if (comp(cur, cur->data.first)) {
+            } else if (comp(cur->data.first, key)) {
                 cur = cur->rc;
             } else {
                 break;
@@ -662,7 +670,7 @@ class map {
         while (cur != nullptr) {
             if (comp(key, cur->data.first)) {
                 cur = cur->lc;
-            } else if (comp(cur, cur->data.first)) {
+            } else if (comp(cur->data.first, key)) {
                 cur = cur->rc;
             } else {
                 break;
