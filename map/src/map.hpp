@@ -218,12 +218,12 @@ class map {
          *   just add whatever you want.
          */
         Node* cur;
-        Node* root_;
-        iterator() : cur(nullptr), root_(nullptr) {
+        const map* id;
+        iterator() : cur(nullptr), id(nullptr) {
         }
-        iterator(Node* cur, Node* root_) : cur(cur), root_(root_) {
+        iterator(Node* cur, const map* id) : cur(cur), id(id) {
         }
-        iterator(const iterator& other) : cur(other.cur), root_(other.root_) {
+        iterator(const iterator& other) : cur(other.cur), id(other.id) {
         }
 
         /**
@@ -260,9 +260,9 @@ class map {
          * TODO iter--
          */
         iterator& operator--() {
-            if (!cur) {                                // end的情况
-                if (!root_) throw invalid_iterator();  // empty tree
-                cur = root_;
+            if (!cur) {  // end的情况
+                if (!id || !id->root) throw invalid_iterator();
+                cur = id->root;
                 while (cur->rc) cur = cur->rc;  // find the last element
                 return *this;
             }
@@ -301,11 +301,11 @@ class map {
         }
 
         bool operator==(const iterator& rhs) const {
-            return (cur == rhs.cur) && (root_ == rhs.root_);
+            return (cur == rhs.cur) && (id == rhs.id);
         }
 
         bool operator==(const const_iterator& rhs) const {
-            return (cur == rhs.cur) && (root_ == rhs.root_);
+            return (cur == rhs.cur) && (id == rhs.id);
         }
 
         /**
@@ -329,8 +329,8 @@ class map {
             return &(cur->data);
         }
 
-        Node* get_root() {
-            return root_;
+        const map* get_id() {
+            return id;
         }
     };
     class const_iterator {
@@ -339,17 +339,16 @@ class map {
        public:
         // data members.
         Node* cur;
-        Node* root_;
+        const map* id;
 
-        const_iterator() : cur(nullptr), root_(nullptr) {
+        const_iterator() : cur(nullptr), id(nullptr) {
         }
-        const_iterator(Node* cur, Node* root_) : cur(cur), root_(root_) {
+        const_iterator(Node* cur, const map* id) : cur(cur), id(id) {
         }
         const_iterator(const const_iterator& other)
-            : cur(other.cur), root_(other.root_) {
+            : cur(other.cur), id(other.id) {
         }
-        const_iterator(const iterator& other)
-            : cur(other.cur), root_(other.root_) {
+        const_iterator(const iterator& other) : cur(other.cur), id(other.id) {
         }
 
         /**
@@ -386,9 +385,9 @@ class map {
          * TODO iter--
          */
         const_iterator& operator--() {
-            if (!cur) {                                // end的情况
-                if (!root_) throw invalid_iterator();  // empty tree
-                cur = root_;
+            if (!cur) {  // end的情况
+                if (!id || !id->root) throw invalid_iterator();
+                cur = id->root;
                 while (cur->rc) cur = cur->rc;  // find the last element
                 return *this;
             }
@@ -421,17 +420,17 @@ class map {
          * a operator to check whether two iterators are same (pointing to the
          * same memory).
          */
-        value_type& operator*() const {
+        const value_type& operator*() const {
             if (!cur) throw invalid_iterator();
             return cur->data;
         }
 
         bool operator==(const iterator& rhs) const {
-            return (cur == rhs.cur) && (root_ == rhs.root_);
+            return (cur == rhs.cur) && (id == rhs.id);
         }
 
         bool operator==(const const_iterator& rhs) const {
-            return (cur == rhs.cur) && (root_ == rhs.root_);
+            return (cur == rhs.cur) && (id == rhs.id);
         }
 
         /**
@@ -451,12 +450,12 @@ class map {
          * <http://kelvinh.github.io/blog/2013/11/20/overloading-of-member-access-operator-dash-greater-than-symbol-in-cpp/>
          * for help.
          */
-        value_type* operator->() const noexcept {
+        const value_type* operator->() const noexcept {
             return &(cur->data);
         }
 
-        const Node* get_root() {
-            return root_;
+        const map* get_id() {
+            return id;
         }
     };
 
@@ -542,20 +541,20 @@ class map {
      */
     iterator begin() {
         Node* p = root;
-        if (!p) return iterator(nullptr, root);
+        if (!p) return iterator(nullptr, this);
         while (p->lc != nullptr) {
             p = p->lc;
         }
-        return iterator(p, root);
+        return iterator(p, this);
     }
 
     const_iterator cbegin() const {
         Node* p = root;
-        if (!p) return const_iterator(nullptr, root);
+        if (!p) return const_iterator(nullptr, this);
         while (p->lc != nullptr) {
             p = p->lc;
         }
-        return const_iterator(p, root);
+        return const_iterator(p, this);
     }
 
     /**
@@ -563,11 +562,11 @@ class map {
      * in fact, it returns past-the-end.
      */
     iterator end() {
-        return iterator(nullptr, root);
+        return iterator(nullptr, this);
     }
 
     const_iterator cend() const {
-        return const_iterator(nullptr, root);
+        return const_iterator(nullptr, this);
     }
 
     /**
@@ -606,7 +605,7 @@ class map {
         root = insert_node(root, nullptr, value, inserted, out_node);
         if (root) root->fa = nullptr;
         if (inserted) capacity++;
-        return pair<iterator, bool>(iterator(out_node, root), inserted);
+        return pair<iterator, bool>(iterator(out_node, this), inserted);
     }
 
     /**
@@ -616,7 +615,7 @@ class map {
      * an element out of this)
      */
     void erase(iterator pos) {
-        if (pos == end() || root != pos.get_root()) throw invalid_iterator();
+        if (pos == end() || pos.get_id() != this) throw invalid_iterator();
         bool erased = false;
         Key key = (*pos).first;
         root = erase_node(root, nullptr, key, erased);
@@ -662,7 +661,7 @@ class map {
                 break;
             }
         }
-        return iterator(cur, root);
+        return iterator(cur, this);
     }
 
     const_iterator find(const Key& key) const {
@@ -676,7 +675,7 @@ class map {
                 break;
             }
         }
-        return const_iterator(cur, root);
+        return const_iterator(cur, this);
     }
 };
 
