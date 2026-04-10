@@ -102,7 +102,55 @@ class map {
         return node;
     }
 
-    Node* erase_node(Node* node, Node* parent, bool& erased) {
+    Node* find_min(Node* node, Node* parent, Node*& min_node) {
+        if (!node) return nullptr;
+        node->fa = parent;
+        if (!node->lc) {  // lc是空，i.e.已经找到
+            min_node = node;
+            if (node->rc) node->rc->fa = node->fa;
+            min_node->lc = nullptr;
+            min_node->rc = nullptr;
+            return node->rc;
+        }
+        node->lc = find_min(node->lc, node, min_node);
+        node = rebalance(node);
+        node->fa = parent;
+        return node;
+    }
+
+    Node* erase_node(Node* node, Node* parent, const Key& key, bool& erased) {
+        if (!node) return nullptr;
+        node->fa = parent;
+        if (comp(key, node->data.first)) {
+            node->lc = erase_node(node->lc, node, key, erased);
+        } else if (comp(node->data.first, key)) {
+            node->rc = erase_node(node->rc, node, key, erased);
+        } else {
+            erased = true;
+            if (!node->lc && !node->rc) {  // 没有子节点
+                delete node;
+                return nullptr;
+            } else if (!node->lc || !node->rc) {  // 1个子节点
+                Node* only_child = node->lc ? node->lc : node->rc;
+                only_child->fa = node->fa;  // 也可以是parent
+                delete node;
+                return only_child;
+            } else {  // 2个子节点
+                Node* min_node;
+                node->rc = find_min(node->rc, node, min_node);
+                // 找右子树上的最小节点作为min_node，用于替代原根节点，返回出右子树的新的右子树根节点
+                min_node->lc = node->lc;
+                if (min_node->lc) min_node->lc->fa = min_node;
+                min_node->rc = node->rc;
+                if (min_node->rc) min_node->rc->fa = min_node;
+                min_node->fa = parent;
+                delete node;
+                node = min_node;
+            }
+        }
+        node = rebalance(node);
+        node->fa = parent;
+        return node;
     }
 
     void LL(Node*& t) {
