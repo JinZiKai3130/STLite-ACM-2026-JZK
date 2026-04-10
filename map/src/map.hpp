@@ -323,6 +323,10 @@ class map {
             if (!cur) throw invalid_iterator();
             return &(cur->data);
         }
+
+        Node* get_root() {
+            return root_;
+        }
     };
     class const_iterator {
         // it should has similar member method as iterator.
@@ -446,6 +450,10 @@ class map {
         value_type* operator->() const noexcept {
             if (!cur) throw invalid_iterator();
             return &(cur->data);
+        }
+
+        const Node* get_root() {
+            return root_;
         }
     };
 
@@ -604,6 +612,13 @@ class map {
      * an element out of this)
      */
     void erase(iterator pos) {
+        if (pos == end() || root != pos.get_root()) throw invalid_iterator();
+        bool erased = false;
+        Key key = pos.cur->data.first;
+        root = erase_node(root, nullptr, key, erased);
+        if (root) root->fa = nullptr;
+        if (!erased) throw invalid_iterator();
+        capacity--;
     }
 
     /**
@@ -614,8 +629,8 @@ class map {
      * The default method of check the equivalence is !(a < b || b > a)
      */
     size_t count(const Key& key) const {
-        iterator it = find(key);
-        if (it == end())
+        const_iterator it = find(key);
+        if (it == cend())
             return 0;
         else
             return 1;
